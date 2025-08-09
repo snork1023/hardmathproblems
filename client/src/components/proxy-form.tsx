@@ -67,12 +67,14 @@ export function ProxyForm() {
     const handleAboutBlankChange = (event: CustomEvent) => {
       setEnableAboutBlank(event.detail);
       // Update form when setting changes
-      setTimeout(() => {
-        const currentMethod = form.getValues("openMethod");
-        if (!event.detail && currentMethod === "about_blank") {
-          form.setValue("openMethod", "new_tab");
-        }
-      }, 0);
+      if (form) {
+        setTimeout(() => {
+          const currentMethod = form.getValues("openMethod");
+          if (!event.detail && currentMethod === "about_blank") {
+            form.setValue("openMethod", "new_tab");
+          }
+        }, 0);
+      }
     };
 
     window.addEventListener('buttonColorChanged', handleColorChange as EventListener);
@@ -160,7 +162,7 @@ export function ProxyForm() {
               <div class="spinner"></div>
               <div>Loading educational content...</div>
             </div>
-            <iframe id="content" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"></iframe>
+            <iframe id="content" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation allow-downloads"></iframe>
             <script>
               const iframe = document.getElementById('content');
               const loading = document.getElementById('loading');
@@ -175,21 +177,31 @@ export function ProxyForm() {
                   targetUrl: '${variables.targetUrl}'
                 })
               })
-              .then(response => response.text())
+              .then(response => {
+                if (!response.ok) {
+                  throw new Error('Failed to fetch content');
+                }
+                return response.text();
+              })
               .then(html => {
-                // Create a blob URL for the content
-                const blob = new Blob([html], { type: 'text/html' });
-                const blobUrl = URL.createObjectURL(blob);
-
-                iframe.src = blobUrl;
+                // Set iframe content directly using srcdoc for better compatibility
+                iframe.srcdoc = html;
                 iframe.onload = () => {
                   loading.style.display = 'none';
                   iframe.style.display = 'block';
                 };
+                
+                // Fallback timeout in case onload doesn't fire
+                setTimeout(() => {
+                  if (iframe.style.display !== 'block') {
+                    loading.style.display = 'none';
+                    iframe.style.display = 'block';
+                  }
+                }, 3000);
               })
               .catch(error => {
                 console.error('Error loading content:', error);
-                loading.innerHTML = '<div>Error loading educational content</div>';
+                loading.innerHTML = '<div>Error loading educational content. <a href="${variables.targetUrl}" target="_blank">Open original site</a></div>';
               });
             </script>
           </body>

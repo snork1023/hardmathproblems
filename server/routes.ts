@@ -72,15 +72,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const directResponse = await fetch(targetUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
-            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
           },
-          timeout: 10000
+          signal: AbortSignal.timeout(15000)
         });
 
         if (directResponse.ok) {
@@ -167,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `;
       }
       
-      // Process the HTML to make relative URLs absolute
+      // Process the HTML to make relative URLs absolute and add security headers
       if (success) {
         const url = new URL(targetUrl);
         const baseUrl = `${url.protocol}//${url.host}`;
@@ -176,15 +183,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         html = html.replace(/href="\/([^"]*?)"/g, `href="${baseUrl}/$1"`);
         html = html.replace(/src="\/([^"]*?)"/g, `src="${baseUrl}/$1"`);
         html = html.replace(/action="\/([^"]*?)"/g, `action="${baseUrl}/$1"`);
+        html = html.replace(/url\(\/([^)]*?)\)/g, `url(${baseUrl}/$1)`);
         
         // Remove Wayback Machine toolbar and navigation if present
         html = html.replace(/<script[^>]*archive\.org[^>]*>.*?<\/script>/gi, '');
         html = html.replace(/<div[^>]*wm-ipp[^>]*>.*?<\/div>/gi, '');
         html = html.replace(/\/\*\s*playback\s*timers\s*\*\/.*?\/\*\s*End\s*Wayback\s*Rewrite\s*\*\//gi, '');
+        
+        // Add a base tag to help with relative URLs
+        if (!html.includes('<base ')) {
+          html = html.replace(/<head[^>]*>/i, `$&\n<base href="${baseUrl}/">`);
+        }
+        
+        // Remove any meta tags that might block iframe embedding
+        html = html.replace(/<meta[^>]*http-equiv["']?=["']?X-Frame-Options[^>]*>/gi, '');
+        html = html.replace(/<meta[^>]*name["']?=["']?viewport[^>]*>/gi, '<meta name="viewport" content="width=device-width, initial-scale=1.0">');
       }
       
-      // Set proper content type
+      // Set proper headers
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('X-Frame-Options', 'ALLOWALL');
+      res.setHeader('Content-Security-Policy', "frame-ancestors *");
+      res.setHeader('Access-Control-Allow-Origin', '*');
       res.send(html);
 
     } catch (error) {
