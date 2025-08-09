@@ -65,32 +65,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Fetching content from: ${targetUrl}`);
 
-      const response = await fetch(targetUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'DNT': '1',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
-        },
-      });
+      let html = '';
+      let success = false;
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // First, try to fetch directly
+      try {
+        const directResponse = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+          },
+          timeout: 10000
+        });
+
+        if (directResponse.ok) {
+          html = await directResponse.text();
+          success = true;
+          console.log('Successfully fetched content directly');
+        }
+      } catch (directError) {
+        console.log('Direct fetch failed, trying Wayback Machine:', directError.message);
       }
 
-      let html = await response.text();
+      // If direct fetch fails, try Wayback Machine
+      if (!success) {
+        try {
+          // First, get the latest snapshot URL from Wayback Machine
+          const waybackApiUrl = `https://archive.org/wayback/available?url=${encodeURIComponent(targetUrl)}`;
+          const waybackResponse = await fetch(waybackApiUrl);
+          
+          if (waybackResponse.ok) {
+            const waybackData = await waybackResponse.json();
+            
+            if (waybackData.archived_snapshots?.closest?.available) {
+              const archivedUrl = waybackData.archived_snapshots.closest.url;
+              console.log(`Fetching from Wayback Machine: ${archivedUrl}`);
+              
+              const archivedResponse = await fetch(archivedUrl, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                }
+              });
+              
+              if (archivedResponse.ok) {
+                html = await archivedResponse.text();
+                success = true;
+                console.log('Successfully fetched content from Wayback Machine');
+              }
+            }
+          }
+        } catch (waybackError) {
+          console.log('Wayback Machine fetch failed:', waybackError.message);
+        }
+      }
+
+      // If both methods fail, create a simple fallback page
+      if (!success || !html) {
+        html = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Content Unavailable</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background-color: #f5f5f5;
+              }
+              .container {
+                text-align: center;
+                padding: 2rem;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              }
+              .url {
+                color: #666;
+                word-break: break-all;
+                margin-top: 1rem;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>Content Unavailable</h2>
+              <p>Unable to fetch content from the requested URL.</p>
+              <p class="url">Requested: ${targetUrl}</p>
+              <p><a href="${targetUrl}" target="_blank">Open Original Site</a></p>
+            </div>
+          </body>
+          </html>
+        `;
+      }
       
       // Process the HTML to make relative URLs absolute
-      const url = new URL(targetUrl);
-      const baseUrl = `${url.protocol}//${url.host}`;
-      
-      // Replace relative URLs with absolute ones
-      html = html.replace(/href="\/([^"]*?)"/g, `href="${baseUrl}/$1"`);
-      html = html.replace(/src="\/([^"]*?)"/g, `src="${baseUrl}/$1"`);
-      html = html.replace(/action="\/([^"]*?)"/g, `action="${baseUrl}/$1"`);
+      if (success) {
+        const url = new URL(targetUrl);
+        const baseUrl = `${url.protocol}//${url.host}`;
+        
+        // Replace relative URLs with absolute ones
+        html = html.replace(/href="\/([^"]*?)"/g, `href="${baseUrl}/$1"`);
+        html = html.replace(/src="\/([^"]*?)"/g, `src="${baseUrl}/$1"`);
+        html = html.replace(/action="\/([^"]*?)"/g, `action="${baseUrl}/$1"`);
+        
+        // Remove Wayback Machine toolbar and navigation if present
+        html = html.replace(/<script[^>]*archive\.org[^>]*>.*?<\/script>/gi, '');
+        html = html.replace(/<div[^>]*wm-ipp[^>]*>.*?<\/div>/gi, '');
+        html = html.replace(/\/\*\s*playback\s*timers\s*\*\/.*?\/\*\s*End\s*Wayback\s*Rewrite\s*\*\//gi, '');
+      }
       
       // Set proper content type
       res.setHeader('Content-Type', 'text/html; charset=utf-8');

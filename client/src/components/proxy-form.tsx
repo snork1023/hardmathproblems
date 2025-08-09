@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -165,7 +164,7 @@ export function ProxyForm() {
             <script>
               const iframe = document.getElementById('content');
               const loading = document.getElementById('loading');
-              
+
               // Fetch the actual website content through our proxy
               fetch('/api/proxy/content', {
                 method: 'POST',
@@ -181,7 +180,7 @@ export function ProxyForm() {
                 // Create a blob URL for the content
                 const blob = new Blob([html], { type: 'text/html' });
                 const blobUrl = URL.createObjectURL(blob);
-                
+
                 iframe.src = blobUrl;
                 iframe.onload = () => {
                   loading.style.display = 'none';
@@ -196,7 +195,7 @@ export function ProxyForm() {
           </body>
           </html>
         `;
-        
+
         const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(maskedContent);
         window.open(dataUrl, '_blank');
       } else {
