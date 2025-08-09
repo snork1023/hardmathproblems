@@ -67,12 +67,10 @@ export function ProxyForm() {
     // Listen for about:blank setting changes
     const handleAboutBlankChange = (event: CustomEvent) => {
       setEnableAboutBlank(event.detail);
-      // Update form when setting changes - use setTimeout to avoid initialization issues
-      setTimeout(() => {
-        if (!event.detail && form.getValues("openMethod") === "about_blank") {
-          form.setValue("openMethod", "new_tab");
-        }
-      }, 0);
+      // Update form when setting changes
+      if (!event.detail && form.getValues("openMethod") === "about_blank") {
+        form.setValue("openMethod", "new_tab");
+      }
     };
 
     window.addEventListener('buttonColorChanged', handleColorChange as EventListener);
@@ -82,7 +80,7 @@ export function ProxyForm() {
       window.removeEventListener('buttonColorChanged', handleColorChange as EventListener);
       window.removeEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
     };
-  }, []);
+  }, [form]);
 
   const proxyMutation = useMutation({
     mutationFn: async (data: ProxyFormData) => {
@@ -94,54 +92,17 @@ export function ProxyForm() {
       const enableAboutBlank = localStorage.getItem("enableAboutBlank") !== "false";
 
       if (variables.openMethod === "about_blank" && enableAboutBlank) {
-        // Create about:blank window and inject content
+        // Create about:blank window and then navigate to the target URL
         const newWindow = window.open("about:blank", "_blank");
         if (newWindow) {
-          // Wait a moment for the window to load
+          // Navigate directly to the target URL
           setTimeout(() => {
-            newWindow.document.write(`
-              <!DOCTYPE html>
-              <html>
-              <head>
-                <title>Study Materials</title>
-                <style>
-                  body { margin: 0; padding: 0; overflow: hidden; }
-                  iframe { width: 100vw; height: 100vh; border: none; }
-                </style>
-              </head>
-              <body>
-                <iframe src="${variables.targetUrl}" frameborder="0"></iframe>
-              </body>
-              </html>
-            `);
-            newWindow.document.close();
+            newWindow.location.href = variables.targetUrl;
           }, 100);
         }
       } else {
-        // Open in new tab with masked URL using data URL
-        const maskedContent = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Study Materials - Khan Academy</title>
-            <style>
-              body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; }
-              iframe { width: 100vw; height: 100vh; border: none; }
-              .loading { 
-                position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                text-align: center; color: #666; 
-              }
-            </style>
-          </head>
-          <body>
-            <div class="loading">Loading study materials...</div>
-            <iframe src="${variables.targetUrl}" frameborder="0" onload="document.querySelector('.loading').style.display='none'"></iframe>
-          </body>
-          </html>
-        `;
-        
-        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(maskedContent);
-        window.open(dataUrl, '_blank');
+        // Open directly in new tab
+        window.open(variables.targetUrl, '_blank');
       }
 
       toast({
