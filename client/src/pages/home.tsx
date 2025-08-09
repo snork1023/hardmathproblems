@@ -29,7 +29,7 @@ export default function Home() {
                 <Globe className="text-white text-sm" size={16} />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">WebProxy</h1>
+                <h1 className="text-xl font-semibold text-gray-900">Nothing Suspicious At All Just Homework</h1>
                 <p className="text-xs text-gray-500">HTTP/HTTPS Proxy Server</p>
               </div>
             </div>
