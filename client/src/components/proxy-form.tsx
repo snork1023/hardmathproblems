@@ -80,7 +80,7 @@ export function ProxyForm() {
       window.removeEventListener('buttonColorChanged', handleColorChange as EventListener);
       window.removeEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
     };
-  }, [form]);
+  }, []);
 
   const proxyMutation = useMutation({
     mutationFn: async (data: ProxyFormData) => {
@@ -101,8 +101,73 @@ export function ProxyForm() {
           }, 100);
         }
       } else {
-        // Open directly in new tab
-        window.open(variables.targetUrl, '_blank');
+        // Create a masked URL using data URL that will hide the real target URL
+        const maskedContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Khan Academy - Study Materials</title>
+            <meta charset="utf-8">
+            <style>
+              body { 
+                margin: 0; 
+                padding: 0; 
+                overflow: hidden; 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #f8f9fa;
+              }
+              .loading { 
+                position: fixed; 
+                top: 50%; 
+                left: 50%; 
+                transform: translate(-50%, -50%);
+                text-align: center; 
+                color: #495057;
+                z-index: 1000;
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              }
+              .spinner {
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #007bff;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 10px;
+              }
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              iframe { 
+                width: 100vw; 
+                height: 100vh; 
+                border: none; 
+                position: absolute;
+                top: 0;
+                left: 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="loading" id="loading">
+              <div class="spinner"></div>
+              <div>Loading educational content...</div>
+            </div>
+            <script>
+              setTimeout(() => {
+                window.location.href = "${variables.targetUrl}";
+              }, 1500);
+            </script>
+          </body>
+          </html>
+        `;
+        
+        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(maskedContent);
+        window.open(dataUrl, '_blank');
       }
 
       toast({
