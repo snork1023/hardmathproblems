@@ -167,38 +167,66 @@ export function ProxyForm() {
               const loading = document.getElementById('loading');
               let contentLoaded = false;
               let loadingStartTime = Date.now();
+              let hasShownContent = false;
 
               function showError(message) {
-                loading.innerHTML = \`
-                  <div style="text-align: center; color: #dc3545; padding: 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">📚</div>
-                    <div style="font-size: 20px; margin-bottom: 15px; color: #2c3e50;">Educational Content Access</div>
-                    <div style="font-size: 16px; margin-bottom: 10px; color: #7f8c8d;">\${message}</div>
-                    <div style="margin: 20px 0;">
-                      <a href="${variables.targetUrl}" target="_blank" style="display: inline-block; padding: 12px 24px; background: #3498db; color: white; text-decoration: none; border-radius: 6px; font-size: 16px; margin: 5px;">📖 Open Original Source</a>
-                      <button onclick="window.location.reload()" style="display: inline-block; padding: 12px 24px; background: #95a5a6; color: white; border: none; border-radius: 6px; font-size: 16px; margin: 5px; cursor: pointer;">🔄 Try Again</button>
+                if (!hasShownContent) {
+                  hasShownContent = true;
+                  loading.innerHTML = \`
+                    <div style="text-align: center; color: #dc3545; padding: 20px;">
+                      <div style="font-size: 48px; margin-bottom: 20px;">📚</div>
+                      <div style="font-size: 20px; margin-bottom: 15px; color: #2c3e50;">Educational Content Access</div>
+                      <div style="font-size: 16px; margin-bottom: 10px; color: #7f8c8d;">\${message}</div>
+                      <div style="margin: 20px 0;">
+                        <a href="${variables.targetUrl}" target="_blank" style="display: inline-block; padding: 12px 24px; background: #3498db; color: white; text-decoration: none; border-radius: 6px; font-size: 16px; margin: 5px;">📖 Open Original Source</a>
+                        <button onclick="window.location.reload()" style="display: inline-block; padding: 12px 24px; background: #95a5a6; color: white; border: none; border-radius: 6px; font-size: 16px; margin: 5px; cursor: pointer;">🔄 Try Again</button>
+                      </div>
+                      <div style="font-size: 14px; color: #95a5a6; margin-top: 15px;">
+                        Some educational resources may have security restrictions
+                      </div>
                     </div>
-                    <div style="font-size: 14px; color: #95a5a6; margin-top: 15px;">
-                      Some educational resources may have security restrictions
-                    </div>
-                  </div>
-                \`;
+                  \`;
+                }
               }
 
               function hideLoader() {
                 if (!contentLoaded) {
                   contentLoaded = true;
+                  hasShownContent = true;
+                  loading.style.transition = 'opacity 0.5s ease';
                   loading.style.opacity = '0';
                   iframe.style.display = 'block';
+                  iframe.style.opacity = '1';
                   setTimeout(() => {
-                    loading.style.display = 'none';
+                    if (loading.parentNode) {
+                      loading.style.display = 'none';
+                    }
                   }, 500);
                 }
               }
 
+              function directRedirect() {
+                console.log('Using direct redirect approach');
+                hasShownContent = true;
+                loading.innerHTML = \`
+                  <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">🚀</div>
+                    <div style="font-size: 20px; margin-bottom: 15px; color: #2c3e50;">Redirecting to Educational Content</div>
+                    <div style="font-size: 16px; color: #7f8c8d;">Taking you to the source material...</div>
+                  </div>
+                \`;
+                setTimeout(() => {
+                  window.location.href = '${variables.targetUrl}';
+                }, 1500);
+              }
+
               async function loadContent() {
                 try {
-                  console.log('Fetching content for:', '${variables.targetUrl}');
+                  console.log('Starting content fetch for:', '${variables.targetUrl}');
+
+                  // Attempt to fetch content through proxy
+                  const controller = new AbortController();
+                  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
                   const response = await fetch('/api/proxy/content', {
                     method: 'POST',
@@ -207,69 +235,90 @@ export function ProxyForm() {
                     },
                     body: JSON.stringify({
                       targetUrl: '${variables.targetUrl}'
-                    })
+                    }),
+                    signal: controller.signal
                   });
+
+                  clearTimeout(timeoutId);
 
                   if (response.ok) {
                     const contentType = response.headers.get('content-type') || '';
+                    console.log('Response content type:', contentType);
 
                     if (contentType.includes('text/html')) {
                       const html = await response.text();
+                      console.log('Received HTML content, length:', html.length);
 
                       if (html && html.trim().length > 100) {
-                        console.log('Content received, length:', html.length);
+                        // Try to load in iframe first
+                        try {
+                          const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+                          const blobUrl = URL.createObjectURL(blob);
 
-                        // Use blob URL for better security and compatibility
-                        const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
-                        const blobUrl = URL.createObjectURL(blob);
+                          let iframeLoadTimeout;
+                          let hasIframeLoaded = false;
 
-                        iframe.src = blobUrl;
-
-                        iframe.onload = () => {
-                          console.log('Iframe loaded successfully');
-                          hideLoader();
-
-                          // Clean up blob URL after loading
-                          setTimeout(() => {
-                            URL.revokeObjectURL(blobUrl);
-                          }, 1000);
-                        };
-
-                        iframe.onerror = (e) => {
-                          console.error('Iframe load error:', e);
-                          showError('Content failed to display properly.');
-                        };
-
-                        // Fallback timeout - always show content after reasonable time
-                        setTimeout(() => {
-                          if (!contentLoaded) {
-                            console.log('Fallback timeout triggered');
+                          iframe.onload = function() {
+                            console.log('Iframe loaded successfully');
+                            hasIframeLoaded = true;
+                            if (iframeLoadTimeout) clearTimeout(iframeLoadTimeout);
                             hideLoader();
-                          }
-                        }, 8000);
+                            // Clean up blob URL
+                            setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+                          };
 
-                        return;
+                          iframe.onerror = function(e) {
+                            console.error('Iframe failed to load:', e);
+                            if (iframeLoadTimeout) clearTimeout(iframeLoadTimeout);
+                            if (!hasShownContent) {
+                              directRedirect();
+                            }
+                          };
+
+                          // Set iframe source
+                          iframe.src = blobUrl;
+
+                          // Fallback after 5 seconds if iframe doesn't load
+                          iframeLoadTimeout = setTimeout(() => {
+                            if (!hasIframeLoaded && !hasShownContent) {
+                              console.log('Iframe timeout, falling back to direct redirect');
+                              URL.revokeObjectURL(blobUrl);
+                              directRedirect();
+                            }
+                          }, 5000);
+
+                          return; // Successfully initiated iframe loading
+                        } catch (iframeError) {
+                          console.error('Iframe setup error:', iframeError);
+                        }
                       }
                     }
                   }
 
-                  throw new Error(\`HTTP \${response.status}: \${response.statusText}\`);
+                  // If we get here, proxy fetch failed or returned invalid content
+                  throw new Error(\`Proxy fetch failed: \${response.status} - \${response.statusText}\`);
 
                 } catch (error) {
                   console.error('Content loading error:', error);
-
-                  // Try direct redirect as last resort
-                  setTimeout(() => {
-                    showError('Unable to load content through proxy. Redirecting to original source...');
-                    setTimeout(() => {
-                      window.location.href = '${variables.targetUrl}';
-                    }, 3000);
-                  }, 2000);
+                  
+                  if (!hasShownContent) {
+                    // Last resort: direct redirect
+                    directRedirect();
+                  }
                 }
               }
 
-              // Start loading immediately
+              // Start loading process
+              console.log('Initializing content loading...');
               loadContent();
+
+              // Ultimate fallback - if nothing works after 8 seconds, redirect
+              setTimeout(() => {
+                if (!hasShownContent) {
+                  console.log('Ultimate fallback triggered');
+                  directRedirect();
+                }
+              }, 8000);
 </script>
           </body>
           </html>

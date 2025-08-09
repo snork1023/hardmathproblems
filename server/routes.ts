@@ -180,9 +180,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Strategy 4: Try a simple redirect approach if all else fails
+      // Strategy 4: Try different headers/approaches if still failing
+      if (!success) {
+        try {
+          console.log('Attempting basic fetch with minimal headers...');
+          const basicResponse = await fetch(targetUrl, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; EducationalProxy/1.0)',
+            },
+            signal: AbortSignal.timeout(8000),
+          });
+
+          if (basicResponse.ok) {
+            const text = await basicResponse.text();
+            if (text && text.trim().length > 50) {
+              html = text;
+              success = true;
+              fetchMethod = 'basic';
+              console.log('Basic fetch succeeded');
+            }
+          }
+        } catch (basicError) {
+          console.log('Basic fetch failed:', basicError.message);
+        }
+      }
+
+      // Strategy 5: Create a simple redirect page if all else fails
       if (!success || !html || html.trim().length < 100) {
-        console.log('All fetch methods failed, creating redirect page');
+        console.log('All fetch methods failed, creating enhanced redirect page');
         const urlObj = new URL(targetUrl);
         html = `
           <!DOCTYPE html>
@@ -191,7 +217,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Educational Content - ${urlObj.hostname}</title>
-            <meta http-equiv="refresh" content="3;url=${targetUrl}">
             <style>
               body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -288,7 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 height: 100%;
                 background: linear-gradient(90deg, #3498db, #2ecc71);
                 width: 0%;
-                animation: loading 3s linear forwards;
+                animation: loading 2s linear forwards;
               }
               @keyframes loading {
                 from { width: 0%; }
@@ -301,31 +326,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
               <div class="icon">📚</div>
               <h1>Accessing Educational Content</h1>
               <div class="redirect-info">Redirecting to study material...</div>
-              <div class="countdown" id="countdown">3</div>
+              <div class="countdown" id="countdown">2</div>
               <div class="loading-bar">
                 <div class="loading-progress"></div>
               </div>
               <div class="url">${targetUrl}</div>
               <div class="actions">
-                <a href="${targetUrl}" class="btn btn-primary">
+                <a href="${targetUrl}" class="btn btn-primary" onclick="clearInterval(window.redirectTimer)">
                   📖 Access Now
                 </a>
               </div>
             </div>
             <script>
-              let timeLeft = 3;
+              let timeLeft = 2;
               const countdownEl = document.getElementById('countdown');
               
-              const timer = setInterval(() => {
+              window.redirectTimer = setInterval(() => {
                 timeLeft--;
                 countdownEl.textContent = timeLeft;
                 
                 if (timeLeft <= 0) {
-                  clearInterval(timer);
-                  countdownEl.textContent = 'Loading...';
-                  window.location.href = '${targetUrl}';
+                  clearInterval(window.redirectTimer);
+                  countdownEl.textContent = 'Redirecting...';
+                  setTimeout(() => {
+                    window.location.href = '${targetUrl}';
+                  }, 500);
                 }
               }, 1000);
+              
+              // Also try to open immediately if user doesn't see the countdown
+              setTimeout(() => {
+                if (timeLeft > 0) {
+                  window.location.href = '${targetUrl}';
+                }
+              }, 3000);
             </script>
           </body>
           </html>
