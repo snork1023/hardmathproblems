@@ -81,7 +81,7 @@ export function RequestLogs() {
 
   if (isLoading) {
     return (
-      <Card className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
+      <Card className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mt-8">
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-gray-200 rounded w-1/3"></div>
           <div className="space-y-2">
@@ -95,7 +95,7 @@ export function RequestLogs() {
   }
 
   return (
-    <Card className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
+    <Card className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mt-8">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
           <List className="text-primary" size={20} />

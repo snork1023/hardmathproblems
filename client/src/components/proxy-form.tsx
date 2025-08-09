@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Link, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Link, ArrowRight, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 
 const proxyFormSchema = z.object({
   targetUrl: z.string()
@@ -26,14 +27,34 @@ const proxyFormSchema = z.object({
   followRedirects: z.boolean().default(true),
   enableCaching: z.boolean().default(false),
   userAgent: z.string().optional(),
+  openMethod: z.enum(["new_tab", "about_blank"]).default("new_tab"),
 });
 
 type ProxyFormData = z.infer<typeof proxyFormSchema>;
 
 export function ProxyForm() {
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [buttonColor, setButtonColor] = useState("bg-primary hover:bg-blue-700");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Load button color from localStorage
+    const savedColor = localStorage.getItem("buttonColor");
+    if (savedColor) {
+      setButtonColor(savedColor);
+    }
+
+    // Listen for button color changes from settings
+    const handleColorChange = (event: CustomEvent) => {
+      setButtonColor(event.detail);
+    };
+
+    window.addEventListener('buttonColorChanged', handleColorChange as EventListener);
+    return () => {
+      window.removeEventListener('buttonColorChanged', handleColorChange as EventListener);
+    };
+  }, []);
 
   const form = useForm<ProxyFormData>({
     resolver: zodResolver(proxyFormSchema),
@@ -42,6 +63,7 @@ export function ProxyForm() {
       followRedirects: true,
       enableCaching: false,
       userAgent: "",
+      openMethod: "new_tab" as const,
     },
   });
 
@@ -53,10 +75,31 @@ export function ProxyForm() {
       const response = await apiRequest("POST", "/api/proxy/request", requestData);
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
+      // Open the URL based on selected method
+      if (variables.openMethod === "about_blank") {
+        // Open in about:blank with masked URL
+        const newWindow = window.open("about:blank");
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head><title>Homework Helper</title></head>
+              <body style="margin:0; padding:0; background:#f5f5f5;">
+                <iframe src="${variables.targetUrl}" style="width:100%; height:100vh; border:none;"></iframe>
+              </body>
+            </html>
+          `);
+          newWindow.document.close();
+        }
+      } else {
+        // Open in new tab with data URL to mask the URL
+        const maskedUrl = `data:text/html;charset=utf-8,<html><head><title>Study Material</title></head><body style="margin:0;padding:0;"><iframe src="${encodeURIComponent(variables.targetUrl)}" style="width:100%;height:100vh;border:none;"></iframe></body></html>`;
+        window.open(maskedUrl, '_blank');
+      }
+
       toast({
         title: "Success",
-        description: "Proxy request completed successfully",
+        description: "Opening study material in new window",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/proxy/requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/proxy/stats"] });
@@ -64,7 +107,7 @@ export function ProxyForm() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Proxy Request Failed",
+        title: "Request Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -95,7 +138,7 @@ export function ProxyForm() {
               <Input
                 id="target-url"
                 type="text"
-                placeholder="khanacademy.org/math/calculus-1 or physics chapter link"
+                placeholder="https://example.com"
                 className="pl-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                 data-testid="input-target-url"
                 {...form.register("targetUrl")}
@@ -110,11 +153,11 @@ export function ProxyForm() {
             <Button
               type="submit"
               disabled={proxyMutation.isPending}
-              className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 whitespace-nowrap"
+              className={`${buttonColor} text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 whitespace-nowrap`}
               data-testid="button-access-site"
             >
               <ArrowRight size={16} />
-              <span>{proxyMutation.isPending ? "Loading..." : "Open Chapter"}</span>
+              <span>{proxyMutation.isPending ? "Running..." : "Run"}</span>
             </Button>
           </div>
         </div>
@@ -163,18 +206,38 @@ export function ProxyForm() {
                 </div>
               </div>
               
-              <div>
-                <Label htmlFor="user-agent" className="block text-sm font-medium text-gray-700 mb-1">
-                  Custom User Agent
-                </Label>
-                <Input
-                  id="user-agent"
-                  type="text"
-                  placeholder="Mozilla/5.0 (default)"
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                  data-testid="input-user-agent"
-                  {...form.register("userAgent")}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="user-agent" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Custom User Agent
+                  </Label>
+                  <Input
+                    id="user-agent"
+                    type="text"
+                    placeholder="Mozilla/5.0 (default)"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                    data-testid="input-user-agent"
+                    {...form.register("userAgent")}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="open-method" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Opening Method
+                  </Label>
+                  <Select 
+                    value={form.watch("openMethod")} 
+                    onValueChange={(value: "new_tab" | "about_blank") => form.setValue("openMethod", value)}
+                  >
+                    <SelectTrigger className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new_tab">New Tab (Masked)</SelectItem>
+                      <SelectItem value="about_blank">About:Blank</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           )}

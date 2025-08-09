@@ -284,9 +284,11 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
   const updateButtonColor = (newColor: string) => {
     setButtonColor(newColor);
     localStorage.setItem("buttonColor", newColor);
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent('buttonColorChanged', { detail: newColor }));
     toast({
       title: "Button Color Updated", 
-      description: `Changed to ${newColor} theme`,
+      description: `Button color changed successfully`,
     });
   };
 
