@@ -78,50 +78,28 @@ export function ProxyForm() {
     onSuccess: (response, variables) => {
       // Open the URL based on selected method
       if (variables.openMethod === "about_blank") {
-        // Open in about:blank with actual website content
+        // Open in about:blank with iframe to actual content
         const newWindow = window.open("about:blank");
         if (newWindow) {
-          // Fetch the content and display it
-          fetch(`/api/proxy/request`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              targetUrl: variables.targetUrl,
-              followRedirects: variables.followRedirects,
-              enableCaching: variables.enableCaching,
-              userAgent: variables.userAgent || '',
-              maskIp: localStorage.getItem("ipMasking") === "true"
-            })
-          })
-          .then(response => response.text())
-          .then(htmlContent => {
-            newWindow.document.write(`
-              <html>
-                <head><title>Study Material</title></head>
-                <body style="margin:0; padding:0;">
-                  ${htmlContent}
-                </body>
-              </html>
-            `);
-            newWindow.document.close();
-          })
-          .catch(error => {
-            newWindow.document.write(`
-              <html>
-                <head><title>Error</title></head>
-                <body style="margin:20px; font-family: Arial;">
-                  <h3>Unable to load content</h3>
-                  <p>Error: ${error.message}</p>
-                  <p><a href="${variables.targetUrl}" target="_blank">Open original link</a></p>
-                </body>
-              </html>
-            `);
-            newWindow.document.close();
-          });
+          newWindow.document.write(`
+            <html>
+              <head>
+                <title>Study Material</title>
+                <style>
+                  body { margin: 0; padding: 0; overflow: hidden; }
+                  iframe { width: 100%; height: 100vh; border: none; }
+                </style>
+              </head>
+              <body>
+                <iframe src="${variables.targetUrl}" allowfullscreen></iframe>
+              </body>
+            </html>
+          `);
+          newWindow.document.close();
         }
       } else {
         // Open in new tab with data URL to mask the URL
-        const maskedUrl = `data:text/html;charset=utf-8,<html><head><title>Study Material</title></head><body style="margin:0;padding:0;"><iframe src="${encodeURIComponent(variables.targetUrl)}" style="width:100%;height:100vh;border:none;"></iframe></body></html>`;
+        const maskedUrl = `data:text/html;charset=utf-8,<html><head><title>Study Material</title></head><body style="margin:0;padding:0;"><iframe src="${variables.targetUrl}" style="width:100%;height:100vh;border:none;" allowfullscreen></iframe></body></html>`;
         window.open(maskedUrl, '_blank');
       }
 
