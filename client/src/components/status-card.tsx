@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,12 @@ export function StatusCard({ serverPort, activeConnections, totalRequests, uptim
     },
   });
 
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["/api/proxy/stats"],
+    queryFn: () => fetch("/api/proxy/stats").then((res) => res.json()),
+    refetchInterval: 15000,
+  });
+
   return (
     <Card className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex items-center justify-between mb-4">
@@ -66,7 +72,7 @@ export function StatusCard({ serverPort, activeConnections, totalRequests, uptim
           Active
         </Badge>
       </div>
-      
+
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
@@ -77,7 +83,7 @@ export function StatusCard({ serverPort, activeConnections, totalRequests, uptim
             {serverPort}
           </span>
         </div>
-        
+
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <Activity className="text-green-500" size={16} />
@@ -87,7 +93,7 @@ export function StatusCard({ serverPort, activeConnections, totalRequests, uptim
             {activeConnections}
           </span>
         </div>
-        
+
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <BarChart3 className="text-purple-500" size={16} />
@@ -97,7 +103,7 @@ export function StatusCard({ serverPort, activeConnections, totalRequests, uptim
             {totalRequests}
           </span>
         </div>
-        
+
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <Clock className="text-orange-500" size={16} />
@@ -107,7 +113,7 @@ export function StatusCard({ serverPort, activeConnections, totalRequests, uptim
             {uptime}
           </span>
         </div>
-        
+
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <Shield className="text-indigo-500" size={16} />
@@ -117,7 +123,7 @@ export function StatusCard({ serverPort, activeConnections, totalRequests, uptim
             Enabled
           </Badge>
         </div>
-        
+
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <BarChart3 className="text-red-500" size={16} />
@@ -128,7 +134,7 @@ export function StatusCard({ serverPort, activeConnections, totalRequests, uptim
           </Badge>
         </div>
       </div>
-      
+
       <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
         <div className="flex space-x-2">
           <Button

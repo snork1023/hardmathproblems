@@ -5,15 +5,18 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
 import NotFound from "@/pages/not-found";
+import { memo } from "react";
 
-function Router() {
+const Router = memo(() => {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route component={NotFound} />
     </Switch>
   );
-}
+});
+
+Router.displayName = "Router";
 
 function App() {
   return (

@@ -34,24 +34,31 @@ type ProxyFormData = z.infer<typeof proxyFormSchema>;
 
 export function ProxyForm() {
   const { toast } = useToast();
-  const [buttonColor, setButtonColor] = useState("#2563eb");
-
   // Initialize enableAboutBlank from localStorage immediately
   const [enableAboutBlank, setEnableAboutBlank] = useState(() => {
     const saved = localStorage.getItem("enableAboutBlank");
     return saved !== null ? saved !== "false" : true;
   });
 
+  const [buttonColor, setButtonColor] = useState(() => {
+    return localStorage.getItem("buttonColor") || "#3b82f6";
+  });
+
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    // Load button color from localStorage
-    const savedColor = localStorage.getItem("buttonColor");
-    if (savedColor) {
-      setButtonColor(savedColor);
-    }
+  const form = useForm<ProxyFormData>({
+    resolver: zodResolver(proxyFormSchema),
+    defaultValues: {
+      targetUrl: "",
+      followRedirects: true,
+      enableCaching: false,
+      userAgent: "",
+      openMethod: enableAboutBlank ? "about_blank" : "new_tab",
+    },
+  });
 
+  useEffect(() => {
     // Listen for button color changes from settings
     const handleColorChange = (event: CustomEvent) => {
       setButtonColor(event.detail);
@@ -70,17 +77,6 @@ export function ProxyForm() {
       window.removeEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
     };
   }, []);
-
-  const form = useForm<ProxyFormData>({
-    resolver: zodResolver(proxyFormSchema),
-    defaultValues: {
-      targetUrl: "",
-      followRedirects: true,
-      enableCaching: false,
-      userAgent: "",
-      openMethod: enableAboutBlank ? "about_blank" : "new_tab",
-    },
-  });
 
   // Update form default when enableAboutBlank changes
   useEffect(() => {

@@ -21,7 +21,7 @@ export function RequestLogs() {
 
   const { data, isLoading, refetch } = useQuery<RequestLogsData>({
     queryKey: ["/api/proxy/requests", { limit, offset: page * limit }],
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const clearLogsMutation = useMutation({
@@ -101,7 +101,7 @@ export function RequestLogs() {
           <List className="text-primary" size={20} />
           <span>Recent Requests</span>
         </h3>
-        
+
         <div className="flex items-center space-x-3">
           <Button
             onClick={() => refetch()}
@@ -113,7 +113,7 @@ export function RequestLogs() {
             <RotateCcw size={12} />
             <span>Refresh</span>
           </Button>
-          
+
           <Button
             onClick={() => clearLogsMutation.mutate()}
             disabled={clearLogsMutation.isPending}
@@ -127,7 +127,7 @@ export function RequestLogs() {
           </Button>
         </div>
       </div>
-      
+
       {!data?.requests.length ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           <List size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
@@ -184,7 +184,7 @@ export function RequestLogs() {
               </tbody>
             </table>
           </div>
-          
+
           <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
             <span data-testid="text-pagination-info">
               Showing {page * limit + 1} to {Math.min((page + 1) * limit, data.total)} of {data.total} requests
