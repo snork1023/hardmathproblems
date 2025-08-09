@@ -68,9 +68,12 @@ export function ProxyForm() {
     const handleAboutBlankChange = (event: CustomEvent) => {
       setEnableAboutBlank(event.detail);
       // Update form when setting changes
-      if (!event.detail && form.getValues("openMethod") === "about_blank") {
-        form.setValue("openMethod", "new_tab");
-      }
+      setTimeout(() => {
+        const currentMethod = form.getValues("openMethod");
+        if (!event.detail && currentMethod === "about_blank") {
+          form.setValue("openMethod", "new_tab");
+        }
+      }, 0);
     };
 
     window.addEventListener('buttonColorChanged', handleColorChange as EventListener);
@@ -80,7 +83,7 @@ export function ProxyForm() {
       window.removeEventListener('buttonColorChanged', handleColorChange as EventListener);
       window.removeEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
     };
-  }, []);
+  }, [form]);
 
   const proxyMutation = useMutation({
     mutationFn: async (data: ProxyFormData) => {
@@ -100,8 +103,8 @@ export function ProxyForm() {
             newWindow.location.href = variables.targetUrl;
           }, 100);
         }
-      } else {
-        // Create a masked URL using data URL that will hide the real target URL
+      } else if (variables.openMethod === "new_tab") {
+        // For "New Tab (Masked)" option, create a masked URL that hides the real target URL
         const maskedContent = `
           <!DOCTYPE html>
           <html>
@@ -142,14 +145,6 @@ export function ProxyForm() {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
               }
-              iframe { 
-                width: 100vw; 
-                height: 100vh; 
-                border: none; 
-                position: absolute;
-                top: 0;
-                left: 0;
-              }
             </style>
           </head>
           <body>
@@ -168,6 +163,9 @@ export function ProxyForm() {
         
         const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(maskedContent);
         window.open(dataUrl, '_blank');
+      } else {
+        // Fallback: open directly
+        window.open(variables.targetUrl, '_blank');
       }
 
       toast({
