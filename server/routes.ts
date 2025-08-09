@@ -67,10 +67,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let html = '';
       let success = false;
+      let fetchMethod = 'none';
 
-      // First, try to fetch directly
+      // Strategy 1: Direct fetch with comprehensive headers
       try {
+        console.log('Attempting direct fetch...');
         const directResponse = await fetch(targetUrl, {
+          method: 'GET',
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -78,6 +81,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Accept-Encoding': 'gzip, deflate, br',
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache',
+            'DNT': '1',
+            'Connection': 'keep-alive',
             'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
             'Sec-Ch-Ua-Mobile': '?0',
             'Sec-Ch-Ua-Platform': '"Windows"',
@@ -87,24 +92,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
           },
-          signal: AbortSignal.timeout(15000)
+          signal: AbortSignal.timeout(20000),
+          redirect: 'follow'
         });
 
         if (directResponse.ok) {
-          html = await directResponse.text();
-          success = true;
-          console.log('Successfully fetched content directly');
+          const contentType = directResponse.headers.get('content-type') || '';
+          if (contentType.includes('text/html')) {
+            html = await directResponse.text();
+            if (html && html.trim().length > 100) { // Basic validation
+              success = true;
+              fetchMethod = 'direct';
+              console.log('Successfully fetched content directly');
+            }
+          }
         }
       } catch (directError) {
-        console.log('Direct fetch failed, trying Wayback Machine:', directError.message);
+        console.log('Direct fetch failed:', directError.message);
       }
 
-      // If direct fetch fails, try Wayback Machine
+      // Strategy 2: Try with different User-Agent (mobile)
       if (!success) {
         try {
-          // First, get the latest snapshot URL from Wayback Machine
+          console.log('Attempting mobile user-agent fetch...');
+          const mobileResponse = await fetch(targetUrl, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.5',
+              'Accept-Encoding': 'gzip, deflate',
+            },
+            signal: AbortSignal.timeout(15000),
+          });
+
+          if (mobileResponse.ok) {
+            const contentType = mobileResponse.headers.get('content-type') || '';
+            if (contentType.includes('text/html')) {
+              html = await mobileResponse.text();
+              if (html && html.trim().length > 100) {
+                success = true;
+                fetchMethod = 'mobile';
+                console.log('Successfully fetched content with mobile user-agent');
+              }
+            }
+          }
+        } catch (mobileError) {
+          console.log('Mobile fetch failed:', mobileError.message);
+        }
+      }
+
+      // Strategy 3: Wayback Machine
+      if (!success) {
+        try {
+          console.log('Attempting Wayback Machine fetch...');
           const waybackApiUrl = `https://archive.org/wayback/available?url=${encodeURIComponent(targetUrl)}`;
-          const waybackResponse = await fetch(waybackApiUrl);
+          const waybackResponse = await fetch(waybackApiUrl, {
+            signal: AbortSignal.timeout(10000)
+          });
           
           if (waybackResponse.ok) {
             const waybackData = await waybackResponse.json();
@@ -116,13 +161,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const archivedResponse = await fetch(archivedUrl, {
                 headers: {
                   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                }
+                },
+                signal: AbortSignal.timeout(15000)
               });
               
               if (archivedResponse.ok) {
                 html = await archivedResponse.text();
-                success = true;
-                console.log('Successfully fetched content from Wayback Machine');
+                if (html && html.trim().length > 100) {
+                  success = true;
+                  fetchMethod = 'wayback';
+                  console.log('Successfully fetched content from Wayback Machine');
+                }
               }
             }
           }
@@ -131,80 +180,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // If both methods fail, create a simple fallback page
-      if (!success || !html) {
+      // Strategy 4: Create a comprehensive fallback page
+      if (!success || !html || html.trim().length < 100) {
+        console.log('All fetch methods failed, creating fallback page');
+        const urlObj = new URL(targetUrl);
         html = `
           <!DOCTYPE html>
-          <html>
+          <html lang="en">
           <head>
-            <title>Content Unavailable</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Educational Content - ${urlObj.hostname}</title>
             <style>
               body {
-                font-family: Arial, sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
                 display: flex;
-                justify-content: center;
                 align-items: center;
-                height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
+                justify-content: center;
               }
               .container {
-                text-align: center;
-                padding: 2rem;
                 background: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                padding: 2rem;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                text-align: center;
+                max-width: 500px;
+              }
+              .icon {
+                font-size: 4rem;
+                margin-bottom: 1rem;
+              }
+              h1 {
+                color: #2c3e50;
+                margin-bottom: 1rem;
               }
               .url {
-                color: #666;
+                color: #7f8c8d;
                 word-break: break-all;
-                margin-top: 1rem;
+                background: #f8f9fa;
+                padding: 10px;
+                border-radius: 6px;
+                margin: 1rem 0;
+                font-family: monospace;
+                font-size: 0.9rem;
+              }
+              .actions {
+                margin-top: 2rem;
+              }
+              .btn {
+                display: inline-block;
+                padding: 12px 24px;
+                margin: 8px;
+                text-decoration: none;
+                border-radius: 6px;
+                font-weight: 500;
+                transition: all 0.3s ease;
+              }
+              .btn-primary {
+                background: #3498db;
+                color: white;
+              }
+              .btn-primary:hover {
+                background: #2980b9;
+                transform: translateY(-2px);
+              }
+              .btn-secondary {
+                background: #95a5a6;
+                color: white;
+              }
+              .btn-secondary:hover {
+                background: #7f8c8d;
+                transform: translateY(-2px);
+              }
+              .info {
+                margin-top: 1.5rem;
+                padding: 1rem;
+                background: #e8f4f8;
+                border-left: 4px solid #3498db;
+                border-radius: 4px;
+                text-align: left;
+                font-size: 0.9rem;
               }
             </style>
           </head>
           <body>
             <div class="container">
-              <h2>Content Unavailable</h2>
-              <p>Unable to fetch content from the requested URL.</p>
-              <p class="url">Requested: ${targetUrl}</p>
-              <p><a href="${targetUrl}" target="_blank">Open Original Site</a></p>
+              <div class="icon">📚</div>
+              <h1>Educational Content Access</h1>
+              <p>We're having trouble loading the educational content from this source.</p>
+              <div class="url">${targetUrl}</div>
+              <div class="info">
+                <strong>What happened?</strong><br>
+                The educational resource may have security restrictions or connectivity issues that prevent direct access through our learning portal.
+              </div>
+              <div class="actions">
+                <a href="${targetUrl}" target="_blank" class="btn btn-primary">
+                  📖 Open Original Source
+                </a>
+                <button onclick="window.parent.location.reload()" class="btn btn-secondary">
+                  🔄 Try Again
+                </button>
+              </div>
             </div>
+            <script>
+              // Attempt to redirect after a short delay if user doesn't interact
+              setTimeout(() => {
+                if (confirm('Would you like to open the original educational resource in a new tab?')) {
+                  window.open('${targetUrl}', '_blank');
+                }
+              }, 3000);
+            </script>
           </body>
           </html>
         `;
+        fetchMethod = 'fallback';
       }
       
-      // Process the HTML to make relative URLs absolute and add security headers
-      if (success) {
-        const url = new URL(targetUrl);
-        const baseUrl = `${url.protocol}//${url.host}`;
-        
-        // Replace relative URLs with absolute ones
-        html = html.replace(/href="\/([^"]*?)"/g, `href="${baseUrl}/$1"`);
-        html = html.replace(/src="\/([^"]*?)"/g, `src="${baseUrl}/$1"`);
-        html = html.replace(/action="\/([^"]*?)"/g, `action="${baseUrl}/$1"`);
-        html = html.replace(/url\(\/([^)]*?)\)/g, `url(${baseUrl}/$1)`);
-        
-        // Remove Wayback Machine toolbar and navigation if present
-        html = html.replace(/<script[^>]*archive\.org[^>]*>.*?<\/script>/gi, '');
-        html = html.replace(/<div[^>]*wm-ipp[^>]*>.*?<\/div>/gi, '');
-        html = html.replace(/\/\*\s*playback\s*timers\s*\*\/.*?\/\*\s*End\s*Wayback\s*Rewrite\s*\*\//gi, '');
-        
-        // Add a base tag to help with relative URLs
-        if (!html.includes('<base ')) {
-          html = html.replace(/<head[^>]*>/i, `$&\n<base href="${baseUrl}/">`);
+      // Process and enhance the HTML content
+      if (success && html) {
+        try {
+          const url = new URL(targetUrl);
+          const baseUrl = `${url.protocol}//${url.host}`;
+          
+          // Enhanced URL rewriting for better compatibility
+          html = html.replace(/href=["']\/([^"']*?)["']/g, `href="${baseUrl}/$1"`);
+          html = html.replace(/src=["']\/([^"']*?)["']/g, `src="${baseUrl}/$1"`);
+          html = html.replace(/action=["']\/([^"']*?)["']/g, `action="${baseUrl}/$1"`);
+          html = html.replace(/url\(["']?\/([^)"']*?)["']?\)/g, `url("${baseUrl}/$1")`);
+          
+          // Remove Wayback Machine artifacts
+          html = html.replace(/<script[^>]*archive\.org[^>]*>.*?<\/script>/gis, '');
+          html = html.replace(/<div[^>]*wm-ipp[^>]*>.*?<\/div>/gis, '');
+          html = html.replace(/\/\*\s*playback\s*timers\s*\*\/.*?\/\*\s*End\s*Wayback\s*Rewrite\s*\*/gis, '');
+          
+          // Remove problematic meta tags and add necessary ones
+          html = html.replace(/<meta[^>]*http-equiv=["']?X-Frame-Options[^>]*>/gi, '');
+          html = html.replace(/<meta[^>]*name=["']?viewport[^>]*>/gi, '');
+          
+          // Add necessary meta tags and base
+          if (!html.includes('<base ')) {
+            html = html.replace(/<head[^>]*>/i, `$&\n    <base href="${baseUrl}/">`);
+          }
+          
+          html = html.replace(/<head[^>]*>/i, `$&\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">`);
+          
+          // Add iframe compatibility styles
+          const iframeStyles = `
+            <style>
+              html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow-x: auto; }
+              * { box-sizing: border-box; }
+            </style>
+          `;
+          html = html.replace(/<\/head>/i, `${iframeStyles}\n$&`);
+          
+        } catch (processError) {
+          console.log('HTML processing error:', processError.message);
         }
-        
-        // Remove any meta tags that might block iframe embedding
-        html = html.replace(/<meta[^>]*http-equiv["']?=["']?X-Frame-Options[^>]*>/gi, '');
-        html = html.replace(/<meta[^>]*name["']?=["']?viewport[^>]*>/gi, '<meta name="viewport" content="width=device-width, initial-scale=1.0">');
       }
       
-      // Set proper headers
+      // Set comprehensive response headers
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('X-Frame-Options', 'ALLOWALL');
-      res.setHeader('Content-Security-Policy', "frame-ancestors *");
+      res.setHeader('Content-Security-Policy', "frame-ancestors *; script-src 'self' 'unsafe-inline' 'unsafe-eval' *; style-src 'self' 'unsafe-inline' *; img-src 'self' data: *; font-src 'self' *; connect-src 'self' *;");
       res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
+      console.log(`Content served using method: ${fetchMethod}, size: ${html.length} characters`);
       res.send(html);
 
     } catch (error) {

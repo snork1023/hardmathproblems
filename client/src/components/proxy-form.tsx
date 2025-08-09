@@ -67,14 +67,12 @@ export function ProxyForm() {
     const handleAboutBlankChange = (event: CustomEvent) => {
       setEnableAboutBlank(event.detail);
       // Update form when setting changes
-      if (form) {
-        setTimeout(() => {
-          const currentMethod = form.getValues("openMethod");
-          if (!event.detail && currentMethod === "about_blank") {
-            form.setValue("openMethod", "new_tab");
-          }
-        }, 0);
-      }
+      setTimeout(() => {
+        const currentMethod = form.getValues("openMethod");
+        if (!event.detail && currentMethod === "about_blank") {
+          form.setValue("openMethod", "new_tab");
+        }
+      }, 0);
     };
 
     window.addEventListener('buttonColorChanged', handleColorChange as EventListener);
@@ -84,7 +82,7 @@ export function ProxyForm() {
       window.removeEventListener('buttonColorChanged', handleColorChange as EventListener);
       window.removeEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
     };
-  }, [form]);
+  }, []);
 
   const proxyMutation = useMutation({
     mutationFn: async (data: ProxyFormData) => {
@@ -166,43 +164,99 @@ export function ProxyForm() {
             <script>
               const iframe = document.getElementById('content');
               const loading = document.getElementById('loading');
+              let contentLoaded = false;
 
-              // Fetch the actual website content through our proxy
-              fetch('/api/proxy/content', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  targetUrl: '${variables.targetUrl}'
-                })
-              })
-              .then(response => {
-                if (!response.ok) {
-                  throw new Error('Failed to fetch content');
-                }
-                return response.text();
-              })
-              .then(html => {
-                // Set iframe content directly using srcdoc for better compatibility
-                iframe.srcdoc = html;
-                iframe.onload = () => {
-                  loading.style.display = 'none';
-                  iframe.style.display = 'block';
-                };
-                
-                // Fallback timeout in case onload doesn't fire
-                setTimeout(() => {
-                  if (iframe.style.display !== 'block') {
-                    loading.style.display = 'none';
-                    iframe.style.display = 'block';
+              // Function to show error and provide fallback
+              function showError(message) {
+                loading.innerHTML = \`
+                  <div style="text-align: center; padding: 20px; font-family: Arial, sans-serif;">
+                    <h3 style="color: #dc3545; margin-bottom: 15px;">Content Loading Failed</h3>
+                    <p style="margin-bottom: 15px;">\${message}</p>
+                    <div>
+                      <a href="${variables.targetUrl}" target="_blank" style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 5px;">Open Original Site</a>
+                      <button onclick="location.reload()" style="display: inline-block; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; margin: 5px; cursor: pointer;">Retry</button>
+                    </div>
+                  </div>
+                \`;
+              }
+
+              // Function to load content with multiple fallback strategies
+              async function loadContent() {
+                try {
+                  loading.innerHTML = '<div class="spinner"></div><div>Fetching educational content...</div>';
+                  
+                  // First attempt: Use our content proxy
+                  const response = await fetch('/api/proxy/content', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      targetUrl: '${variables.targetUrl}'
+                    })
+                  });
+
+                  if (response.ok) {
+                    const html = await response.text();
+                    
+                    if (html && html.trim().length > 0) {
+                      // Successfully got content
+                      iframe.srcdoc = html;
+                      
+                      // Set up load handlers
+                      iframe.onload = () => {
+                        if (!contentLoaded) {
+                          contentLoaded = true;
+                          loading.style.display = 'none';
+                          iframe.style.display = 'block';
+                        }
+                      };
+                      
+                      iframe.onerror = () => {
+                        if (!contentLoaded) {
+                          showError('Content failed to load in iframe.');
+                        }
+                      };
+                      
+                      // Fallback timeout
+                      setTimeout(() => {
+                        if (!contentLoaded) {
+                          contentLoaded = true;
+                          loading.style.display = 'none';
+                          iframe.style.display = 'block';
+                        }
+                      }, 5000);
+                      
+                      return;
+                    }
                   }
-                }, 3000);
-              })
-              .catch(error => {
-                console.error('Error loading content:', error);
-                loading.innerHTML = '<div>Error loading educational content. <a href="${variables.targetUrl}" target="_blank">Open original site</a></div>';
-              });
+                  
+                  throw new Error('Content proxy returned empty or invalid response');
+                  
+                } catch (error) {
+                  console.error('Content loading error:', error);
+                  
+                  // Fallback: Try direct iframe src (may work for some sites)
+                  try {
+                    loading.innerHTML = '<div class="spinner"></div><div>Trying direct access...</div>';
+                    iframe.src = '${variables.targetUrl}';
+                    
+                    setTimeout(() => {
+                      if (!contentLoaded) {
+                        contentLoaded = true;
+                        loading.style.display = 'none';
+                        iframe.style.display = 'block';
+                      }
+                    }, 3000);
+                    
+                  } catch (directError) {
+                    showError('Unable to load content through any method.');
+                  }
+                }
+              }
+
+              // Start loading content
+              loadContent();
             </script>
           </body>
           </html>
