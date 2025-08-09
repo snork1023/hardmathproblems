@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,7 +35,6 @@ type ProxyFormData = z.infer<typeof proxyFormSchema>;
 
 export function ProxyForm() {
   const { toast } = useToast();
-  // Initialize enableAboutBlank from localStorage immediately
   const [enableAboutBlank, setEnableAboutBlank] = useState(() => {
     const saved = localStorage.getItem("enableAboutBlank");
     return saved !== null ? saved !== "false" : true;
@@ -54,7 +54,7 @@ export function ProxyForm() {
       followRedirects: true,
       enableCaching: false,
       userAgent: "",
-      openMethod: "new_tab",
+      openMethod: enableAboutBlank ? "about_blank" : "new_tab",
     },
   });
 
@@ -67,6 +67,10 @@ export function ProxyForm() {
     // Listen for about:blank setting changes
     const handleAboutBlankChange = (event: CustomEvent) => {
       setEnableAboutBlank(event.detail);
+      // Update form when setting changes
+      if (!event.detail && form.getValues("openMethod") === "about_blank") {
+        form.setValue("openMethod", "new_tab");
+      }
     };
 
     window.addEventListener('buttonColorChanged', handleColorChange as EventListener);
@@ -76,43 +80,21 @@ export function ProxyForm() {
       window.removeEventListener('buttonColorChanged', handleColorChange as EventListener);
       window.removeEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
     };
-  }, []);
-
-  // Update form default when enableAboutBlank changes
-  useEffect(() => {
-    if (!enableAboutBlank && form.getValues("openMethod") === "about_blank") {
-      form.setValue("openMethod", "new_tab");
-    }
-    // Set the default based on enableAboutBlank setting
-    if (enableAboutBlank && form.getValues("openMethod") === "new_tab" && !form.getValues("targetUrl")) {
-      form.setValue("openMethod", "about_blank");
-    }
-  }, [enableAboutBlank, form]);
+  }, [form]);
 
   const proxyMutation = useMutation({
     mutationFn: async (data: ProxyFormData) => {
-      // Check if IP masking is enabled in localStorage
       const ipMasking = localStorage.getItem("ipMasking") === "true";
       const requestData = { ...data, maskIp: ipMasking };
-      const response = await apiRequest("POST", "/api/proxy/request", requestData);
-      return response;
+      return await apiRequest("POST", "/api/proxy/request", requestData);
     },
     onSuccess: (response, variables) => {
-      // Check if about:blank is enabled
       const enableAboutBlank = localStorage.getItem("enableAboutBlank") !== "false";
 
-      // Open the URL based on selected method and settings
       if (variables.openMethod === "about_blank" && enableAboutBlank) {
-        // Open in about:blank and redirect to the target URL
-        const newWindow = window.open("about:blank");
-        if (newWindow) {
-          // Simply redirect the about:blank window to the target URL
-          newWindow.location.href = variables.targetUrl;
-        }
+        window.open(variables.targetUrl, '_blank');
       } else {
-        // Open in new tab with data URL to mask the URL
-        const maskedUrl = `data:text/html;charset=utf-8,<html><head><title>Study Material</title></head><body style="margin:0;padding:0;"><iframe src="${variables.targetUrl}" style="width:100%;height:100vh;border:none;" allowfullscreen></iframe></body></html>`;
-        window.open(maskedUrl, '_blank');
+        window.open(variables.targetUrl, '_blank');
       }
 
       toast({
@@ -144,7 +126,7 @@ export function ProxyForm() {
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="flex flex-col sm:flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <Label htmlFor="target-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Textbook Chapter URL
@@ -171,7 +153,8 @@ export function ProxyForm() {
             <Button
               type="submit"
               disabled={proxyMutation.isPending}
-              className={`${buttonColor} text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 whitespace-nowrap`}
+              style={{ backgroundColor: buttonColor }}
+              className="text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 whitespace-nowrap"
               data-testid="button-access-site"
             >
               <ArrowRight size={16} />
@@ -180,7 +163,6 @@ export function ProxyForm() {
           </div>
         </div>
 
-        {/* Advanced Options Toggle */}
         <div className="pt-4 border-t border-gray-100">
           <Button
             type="button"
