@@ -67,10 +67,12 @@ export function ProxyForm() {
     // Listen for about:blank setting changes
     const handleAboutBlankChange = (event: CustomEvent) => {
       setEnableAboutBlank(event.detail);
-      // Update form when setting changes
-      if (!event.detail && form.getValues("openMethod") === "about_blank") {
-        form.setValue("openMethod", "new_tab");
-      }
+      // Update form when setting changes - use setTimeout to avoid initialization issues
+      setTimeout(() => {
+        if (!event.detail && form.getValues("openMethod") === "about_blank") {
+          form.setValue("openMethod", "new_tab");
+        }
+      }, 0);
     };
 
     window.addEventListener('buttonColorChanged', handleColorChange as EventListener);
@@ -80,7 +82,7 @@ export function ProxyForm() {
       window.removeEventListener('buttonColorChanged', handleColorChange as EventListener);
       window.removeEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
     };
-  }, [form]);
+  }, []);
 
   const proxyMutation = useMutation({
     mutationFn: async (data: ProxyFormData) => {
