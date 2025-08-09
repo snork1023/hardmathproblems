@@ -5,8 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { X, Moon, Sun, Shield, Globe, Eye, EyeOff, RefreshCw, Bell, FileText, Minimize2 } from "lucide-react";
+import { X, Moon, Sun, Shield, Globe, Eye, EyeOff, RefreshCw, Bell, FileText, Minimize2, AlertTriangle } from "lucide-react";
 
 interface SettingsSidebarProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
   const [notifications, setNotifications] = useState(true);
   const [enableLogging, setEnableLogging] = useState(true);
   const [compactMode, setCompactMode] = useState(false);
+  const [panicUrl, setPanicUrl] = useState("https://google.com");
   const { toast } = useToast();
 
   // Load theme preference from localStorage (default to light theme)
@@ -44,12 +46,14 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     const savedNotifications = localStorage.getItem("notifications");
     const savedEnableLogging = localStorage.getItem("enableLogging");
     const savedCompactMode = localStorage.getItem("compactMode");
+    const savedPanicUrl = localStorage.getItem("panicUrl");
     
     setIpMasking(savedIpMasking === "true");
     setAutoRefresh(savedAutoRefresh !== "false"); // default true
     setNotifications(savedNotifications !== "false"); // default true
     setEnableLogging(savedEnableLogging !== "false"); // default true
     setCompactMode(savedCompactMode === "true");
+    setPanicUrl(savedPanicUrl || "https://google.com");
   }, []);
 
   // Fetch current IP address
@@ -149,6 +153,19 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
       description: newCompactMode 
         ? "Interface will use compact layout" 
         : "Standard layout restored",
+    });
+  };
+
+  const handlePanicButton = () => {
+    window.location.href = panicUrl;
+  };
+
+  const updatePanicUrl = (newUrl: string) => {
+    setPanicUrl(newUrl);
+    localStorage.setItem("panicUrl", newUrl);
+    toast({
+      title: "Panic URL Updated",
+      description: `Will redirect to: ${newUrl}`,
     });
   };
 
@@ -388,6 +405,46 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
                     checked={compactMode}
                     onCheckedChange={toggleCompactMode}
                     data-testid="switch-compact-mode"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Panic Button */}
+            <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <AlertTriangle className="text-red-500" size={20} />
+                    <div>
+                      <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                        Panic Button
+                      </Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Quick redirect for emergencies
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handlePanicButton}
+                    data-testid="button-panic"
+                    className="text-xs px-3 py-1"
+                  >
+                    PANIC
+                  </Button>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-700 dark:text-gray-300">Redirect URL:</Label>
+                  <Input
+                    type="url"
+                    value={panicUrl}
+                    onChange={(e) => updatePanicUrl(e.target.value)}
+                    placeholder="https://google.com"
+                    className="text-xs h-8"
+                    data-testid="input-panic-url"
                   />
                 </div>
               </CardContent>

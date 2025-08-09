@@ -34,7 +34,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Nothing Suspicious At All Just Homework</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">HTTP/HTTPS Proxy Server</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Advanced Algebra and Calculus</p>
               </div>
             </div>
             
