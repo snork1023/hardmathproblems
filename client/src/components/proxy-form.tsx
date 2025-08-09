@@ -109,7 +109,7 @@ export function ProxyForm() {
           <!DOCTYPE html>
           <html>
           <head>
-            <title>Khan Academy - Study Materials</title>
+            <title>Educational Content - ${new URL(variables.targetUrl).hostname}</title>
             <meta charset="utf-8">
             <style>
               body { 
@@ -222,87 +222,126 @@ export function ProxyForm() {
 
               async function loadContent() {
                 try {
-                  console.log('Starting content fetch for:', '${variables.targetUrl}');
+                  console.log('Starting content loading for:', '${variables.targetUrl}');
 
-                  // Attempt to fetch content through proxy
-                  const controller = new AbortController();
-                  const timeoutId = setTimeout(() => controller.abort(), 10000);
+                  // Strategy 1: Try direct iframe loading first (fastest)
+                  let iframeDirectTimeout;
+                  let hasDirectLoaded = false;
 
-                  const response = await fetch('/api/proxy/content', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      targetUrl: '${variables.targetUrl}'
-                    }),
-                    signal: controller.signal
-                  });
+                  iframe.onload = function() {
+                    console.log('Direct iframe load successful');
+                    hasDirectLoaded = true;
+                    if (iframeDirectTimeout) clearTimeout(iframeDirectTimeout);
+                    hideLoader();
+                  };
 
-                  clearTimeout(timeoutId);
+                  iframe.onerror = function(e) {
+                    console.log('Direct iframe load failed:', e);
+                    if (iframeDirectTimeout) clearTimeout(iframeDirectTimeout);
+                    if (!hasShownContent) {
+                      tryProxyFetch();
+                    }
+                  };
 
-                  if (response.ok) {
-                    const contentType = response.headers.get('content-type') || '';
-                    console.log('Response content type:', contentType);
+                  // Try loading directly in iframe
+                  iframe.src = '${variables.targetUrl}';
 
-                    if (contentType.includes('text/html')) {
-                      const html = await response.text();
-                      console.log('Received HTML content, length:', html.length);
+                  // Give direct loading 3 seconds
+                  iframeDirectTimeout = setTimeout(() => {
+                    if (!hasDirectLoaded && !hasShownContent) {
+                      console.log('Direct iframe timeout, trying proxy fetch');
+                      tryProxyFetch();
+                    }
+                  }, 3000);
 
-                      if (html && html.trim().length > 100) {
-                        // Try to load in iframe first
-                        try {
-                          const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
-                          const blobUrl = URL.createObjectURL(blob);
+                  // Strategy 2: Proxy fetch fallback
+                  async function tryProxyFetch() {
+                    if (hasShownContent) return;
 
-                          let iframeLoadTimeout;
-                          let hasIframeLoaded = false;
+                    try {
+                      console.log('Attempting proxy fetch...');
+                      const controller = new AbortController();
+                      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-                          iframe.onload = function() {
-                            console.log('Iframe loaded successfully');
-                            hasIframeLoaded = true;
-                            if (iframeLoadTimeout) clearTimeout(iframeLoadTimeout);
-                            hideLoader();
-                            // Clean up blob URL
-                            setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-                          };
+                      const response = await fetch('/api/proxy/content', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          targetUrl: '${variables.targetUrl}'
+                        }),
+                        signal: controller.signal
+                      });
 
-                          iframe.onerror = function(e) {
-                            console.error('Iframe failed to load:', e);
-                            if (iframeLoadTimeout) clearTimeout(iframeLoadTimeout);
-                            if (!hasShownContent) {
-                              directRedirect();
+                      clearTimeout(timeoutId);
+
+                      if (response.ok) {
+                        const contentType = response.headers.get('content-type') || '';
+                        console.log('Proxy response content type:', contentType);
+
+                        if (contentType.includes('text/html')) {
+                          const html = await response.text();
+                          console.log('Received proxy HTML content, length:', html.length);
+
+                          if (html && html.trim().length > 100) {
+                            try {
+                              // Create a proper HTML document
+                              const processedHtml = html.replace(/<base[^>]*>/gi, '');
+                              const blob = new Blob([processedHtml], { type: 'text/html; charset=utf-8' });
+                              const blobUrl = URL.createObjectURL(blob);
+
+                              let proxyIframeTimeout;
+                              let hasProxyLoaded = false;
+
+                              iframe.onload = function() {
+                                console.log('Proxy iframe loaded successfully');
+                                hasProxyLoaded = true;
+                                if (proxyIframeTimeout) clearTimeout(proxyIframeTimeout);
+                                hideLoader();
+                                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+                              };
+
+                              iframe.onerror = function(e) {
+                                console.error('Proxy iframe failed:', e);
+                                if (proxyIframeTimeout) clearTimeout(proxyIframeTimeout);
+                                URL.revokeObjectURL(blobUrl);
+                                if (!hasShownContent) {
+                                  directRedirect();
+                                }
+                              };
+
+                              iframe.src = blobUrl;
+
+                              proxyIframeTimeout = setTimeout(() => {
+                                if (!hasProxyLoaded && !hasShownContent) {
+                                  console.log('Proxy iframe timeout, redirecting');
+                                  URL.revokeObjectURL(blobUrl);
+                                  directRedirect();
+                                }
+                              }, 4000);
+
+                              return;
+                            } catch (blobError) {
+                              console.error('Blob creation error:', blobError);
                             }
-                          };
-
-                          // Set iframe source
-                          iframe.src = blobUrl;
-
-                          // Fallback after 5 seconds if iframe doesn't load
-                          iframeLoadTimeout = setTimeout(() => {
-                            if (!hasIframeLoaded && !hasShownContent) {
-                              console.log('Iframe timeout, falling back to direct redirect');
-                              URL.revokeObjectURL(blobUrl);
-                              directRedirect();
-                            }
-                          }, 5000);
-
-                          return; // Successfully initiated iframe loading
-                        } catch (iframeError) {
-                          console.error('Iframe setup error:', iframeError);
+                          }
                         }
+                      }
+
+                      throw new Error(\`Proxy fetch failed: \${response.status}\`);
+
+                    } catch (proxyError) {
+                      console.error('Proxy fetch error:', proxyError);
+                      if (!hasShownContent) {
+                        directRedirect();
                       }
                     }
                   }
 
-                  // If we get here, proxy fetch failed or returned invalid content
-                  throw new Error(\`Proxy fetch failed: \${response.status} - \${response.statusText}\`);
-
                 } catch (error) {
                   console.error('Content loading error:', error);
-                  
                   if (!hasShownContent) {
-                    // Last resort: direct redirect
                     directRedirect();
                   }
                 }
@@ -324,8 +363,17 @@ export function ProxyForm() {
           </html>
         `;
 
-        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(maskedContent);
-        window.open(dataUrl, '_blank');
+        // Create a blob URL instead of data URL to avoid about:blank issues
+        const blob = new Blob([maskedContent], { type: 'text/html; charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        const newWindow = window.open(blobUrl, '_blank');
+        
+        // Clean up blob URL after window opens
+        if (newWindow) {
+          setTimeout(() => {
+            URL.revokeObjectURL(blobUrl);
+          }, 5000);
+        }
       } else {
         // Fallback: open directly
         window.open(variables.targetUrl, '_blank');
