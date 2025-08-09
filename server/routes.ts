@@ -54,6 +54,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Handle content fetching for iframe embedding
+  app.post("/api/proxy/content", async (req, res) => {
+    try {
+      const { targetUrl } = req.body;
+      
+      if (!targetUrl) {
+        return res.status(400).json({ message: "Target URL is required" });
+      }
+
+      console.log(`Fetching content from: ${targetUrl}`);
+
+      const response = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      let html = await response.text();
+      
+      // Process the HTML to make relative URLs absolute
+      const url = new URL(targetUrl);
+      const baseUrl = `${url.protocol}//${url.host}`;
+      
+      // Replace relative URLs with absolute ones
+      html = html.replace(/href="\/([^"]*?)"/g, `href="${baseUrl}/$1"`);
+      html = html.replace(/src="\/([^"]*?)"/g, `src="${baseUrl}/$1"`);
+      html = html.replace(/action="\/([^"]*?)"/g, `action="${baseUrl}/$1"`);
+      
+      // Set proper content type
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+
+    } catch (error) {
+      console.error("Content fetch error:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch content",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Handle proxy requests
   app.post("/api/proxy/request", async (req, res) => {
     const startTime = Date.now();

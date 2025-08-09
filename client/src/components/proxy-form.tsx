@@ -104,7 +104,7 @@ export function ProxyForm() {
           }, 100);
         }
       } else if (variables.openMethod === "new_tab") {
-        // For "New Tab (Masked)" option, create a masked URL that hides the real target URL
+        // For "New Tab (Masked)" option, create a masked URL with actual website content
         const maskedContent = `
           <!DOCTYPE html>
           <html>
@@ -145,6 +145,15 @@ export function ProxyForm() {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
               }
+              iframe {
+                width: 100vw;
+                height: 100vh;
+                border: none;
+                position: absolute;
+                top: 0;
+                left: 0;
+                display: none;
+              }
             </style>
           </head>
           <body>
@@ -152,10 +161,37 @@ export function ProxyForm() {
               <div class="spinner"></div>
               <div>Loading educational content...</div>
             </div>
+            <iframe id="content" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"></iframe>
             <script>
-              setTimeout(() => {
-                window.location.href = "${variables.targetUrl}";
-              }, 1500);
+              const iframe = document.getElementById('content');
+              const loading = document.getElementById('loading');
+              
+              // Fetch the actual website content through our proxy
+              fetch('/api/proxy/content', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  targetUrl: '${variables.targetUrl}'
+                })
+              })
+              .then(response => response.text())
+              .then(html => {
+                // Create a blob URL for the content
+                const blob = new Blob([html], { type: 'text/html' });
+                const blobUrl = URL.createObjectURL(blob);
+                
+                iframe.src = blobUrl;
+                iframe.onload = () => {
+                  loading.style.display = 'none';
+                  iframe.style.display = 'block';
+                };
+              })
+              .catch(error => {
+                console.error('Error loading content:', error);
+                loading.innerHTML = '<div>Error loading educational content</div>';
+              });
             </script>
           </body>
           </html>
