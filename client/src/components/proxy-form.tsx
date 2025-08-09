@@ -13,7 +13,16 @@ import { apiRequest } from "@/lib/queryClient";
 import { Link, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 
 const proxyFormSchema = z.object({
-  targetUrl: z.string().url("Please enter a valid URL"),
+  targetUrl: z.string()
+    .min(1, "Please enter a URL")
+    .transform((url) => {
+      // Add https:// if no protocol is specified
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return `https://${url}`;
+      }
+      return url;
+    })
+    .pipe(z.string().url("Please enter a valid URL")),
   followRedirects: z.boolean().default(true),
   enableCaching: z.boolean().default(false),
   userAgent: z.string().optional(),
@@ -82,8 +91,8 @@ export function ProxyForm() {
               </div>
               <Input
                 id="target-url"
-                type="url"
-                placeholder="https://example.com"
+                type="text"
+                placeholder="google.com or https://example.com"
                 className="pl-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                 data-testid="input-target-url"
                 {...form.register("targetUrl")}
