@@ -71,13 +71,6 @@ export function ProxyForm() {
     };
   }, []);
 
-  // Update form default when enableAboutBlank changes
-  useEffect(() => {
-    if (!enableAboutBlank && form.watch("openMethod") === "about_blank") {
-      form.setValue("openMethod", "new_tab");
-    }
-  }, [enableAboutBlank, form]);
-
   const form = useForm<ProxyFormData>({
     resolver: zodResolver(proxyFormSchema),
     defaultValues: {
@@ -88,6 +81,13 @@ export function ProxyForm() {
       openMethod: enableAboutBlank ? "about_blank" : "new_tab",
     },
   });
+
+  // Update form default when enableAboutBlank changes
+  useEffect(() => {
+    if (!enableAboutBlank && form.watch("openMethod") === "about_blank") {
+      form.setValue("openMethod", "new_tab");
+    }
+  }, [enableAboutBlank, form]);
 
   const proxyMutation = useMutation({
     mutationFn: async (data: ProxyFormData) => {
