@@ -34,6 +34,8 @@ type ProxyFormData = z.infer<typeof proxyFormSchema>;
 
 export function ProxyForm() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const [enableAboutBlank, setEnableAboutBlank] = useState(() => {
     const saved = localStorage.getItem("enableAboutBlank");
     return saved !== null ? saved !== "false" : true;
@@ -44,7 +46,6 @@ export function ProxyForm() {
   });
 
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const queryClient = useQueryClient();
 
   const form = useForm<ProxyFormData>({
     resolver: zodResolver(proxyFormSchema),

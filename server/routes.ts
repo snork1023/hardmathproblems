@@ -331,14 +331,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           html = html.replace(/<head[^>]*>/i, `$&\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">`);
           
-          // Add iframe compatibility styles
-          const iframeStyles = `
+          // Add comprehensive fallback loading system and iframe compatibility styles
+          const enhancedStyles = `
             <style>
               html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow-x: auto; }
               * { box-sizing: border-box; }
+              
+              /* Fallback loading overlay */
+              #fallback-loader {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(255, 255, 255, 0.95);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                z-index: 999999;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                backdrop-filter: blur(5px);
+                transition: opacity 0.5s ease-out;
+              }
+              
+              #fallback-loader.hidden {
+                opacity: 0;
+                pointer-events: none;
+              }
+              
+              .loader-spinner {
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #007bff;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                animation: spin 1s linear infinite;
+                margin-bottom: 20px;
+              }
+              
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              
+              .loader-text {
+                color: #495057;
+                font-size: 16px;
+                text-align: center;
+                margin-bottom: 10px;
+              }
+              
+              .loader-progress {
+                width: 200px;
+                height: 4px;
+                background: #e9ecef;
+                border-radius: 2px;
+                overflow: hidden;
+                margin-bottom: 15px;
+              }
+              
+              .loader-progress-bar {
+                height: 100%;
+                background: linear-gradient(90deg, #007bff, #0056b3);
+                width: 0%;
+                transition: width 0.3s ease;
+                animation: progress 3s ease-in-out;
+              }
+              
+              @keyframes progress {
+                0% { width: 0%; }
+                50% { width: 70%; }
+                100% { width: 100%; }
+              }
+              
+              .loader-subtitle {
+                color: #6c757d;
+                font-size: 14px;
+                text-align: center;
+              }
             </style>
           `;
-          html = html.replace(/<\/head>/i, `${iframeStyles}\n$&`);
+          
+          const fallbackScript = `
+            <script>
+              (function() {
+                // Create fallback loader if it doesn't exist
+                if (!document.getElementById('fallback-loader')) {
+                  const loader = document.createElement('div');
+                  loader.id = 'fallback-loader';
+                  loader.innerHTML = \`
+                    <div class="loader-spinner"></div>
+                    <div class="loader-text">Loading educational content...</div>
+                    <div class="loader-progress">
+                      <div class="loader-progress-bar"></div>
+                    </div>
+                    <div class="loader-subtitle">Please wait while we prepare your study materials</div>
+                  \`;
+                  document.body.insertBefore(loader, document.body.firstChild);
+                }
+                
+                let loadStartTime = Date.now();
+                let loaderElement = document.getElementById('fallback-loader');
+                let hasLoaded = false;
+                
+                // Function to hide loader
+                function hideLoader() {
+                  if (!hasLoaded && loaderElement) {
+                    hasLoaded = true;
+                    loaderElement.classList.add('hidden');
+                    setTimeout(() => {
+                      if (loaderElement && loaderElement.parentNode) {
+                        loaderElement.parentNode.removeChild(loaderElement);
+                      }
+                    }, 500);
+                  }
+                }
+                
+                // Multiple strategies to detect when page is ready
+                let readyChecks = 0;
+                let maxChecks = 30; // 15 seconds max
+                
+                function checkIfReady() {
+                  readyChecks++;
+                  
+                  // Check if main content is visible
+                  const hasVisibleContent = (
+                    document.body.offsetHeight > 100 ||
+                    document.querySelectorAll('img, video, iframe, canvas').length > 0 ||
+                    document.querySelectorAll('div, section, article, main').length > 5
+                  );
+                  
+                  // Check if enough time has passed
+                  const timeElapsed = Date.now() - loadStartTime;
+                  const minLoadTime = 1500; // Minimum 1.5 seconds
+                  
+                  if ((hasVisibleContent && timeElapsed > minLoadTime) || 
+                      readyChecks >= maxChecks || 
+                      timeElapsed > 15000) {
+                    hideLoader();
+                    return;
+                  }
+                  
+                  // Continue checking
+                  setTimeout(checkIfReady, 500);
+                }
+                
+                // Start checking when DOM is ready
+                if (document.readyState === 'loading') {
+                  document.addEventListener('DOMContentLoaded', () => {
+                    setTimeout(checkIfReady, 100);
+                  });
+                } else {
+                  setTimeout(checkIfReady, 100);
+                }
+                
+                // Fallback: Always hide after reasonable time
+                setTimeout(hideLoader, 20000);
+                
+                // Hide on window load as backup
+                window.addEventListener('load', () => {
+                  setTimeout(hideLoader, 1000);
+                });
+                
+                // Error handling
+                window.addEventListener('error', (e) => {
+                  console.warn('Page load error detected:', e.message);
+                  setTimeout(hideLoader, 2000);
+                });
+                
+              })();
+            </script>
+          `;
+          
+          html = html.replace(/<\/head>/i, `${enhancedStyles}\n$&`);
+          html = html.replace(/<\/body>/i, `${fallbackScript}\n$&`);
           
         } catch (processError) {
           console.log('HTML processing error:', processError.message);
