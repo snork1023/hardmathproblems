@@ -54,7 +54,7 @@ export function ProxyForm() {
       followRedirects: true,
       enableCaching: false,
       userAgent: "",
-      openMethod: enableAboutBlank ? "about_blank" : "new_tab",
+      openMethod: "new_tab",
     },
   });
 
@@ -80,8 +80,12 @@ export function ProxyForm() {
 
   // Update form default when enableAboutBlank changes
   useEffect(() => {
-    if (!enableAboutBlank && form.watch("openMethod") === "about_blank") {
+    if (!enableAboutBlank && form.getValues("openMethod") === "about_blank") {
       form.setValue("openMethod", "new_tab");
+    }
+    // Set the default based on enableAboutBlank setting
+    if (enableAboutBlank && form.getValues("openMethod") === "new_tab" && !form.getValues("targetUrl")) {
+      form.setValue("openMethod", "about_blank");
     }
   }, [enableAboutBlank, form]);
 
@@ -140,7 +144,7 @@ export function ProxyForm() {
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-col gap-4">
           <div className="flex-1">
             <Label htmlFor="target-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Textbook Chapter URL
