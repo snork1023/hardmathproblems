@@ -180,9 +180,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Strategy 4: Create a comprehensive fallback page
+      // Strategy 4: Try a simple redirect approach if all else fails
       if (!success || !html || html.trim().length < 100) {
-        console.log('All fetch methods failed, creating fallback page');
+        console.log('All fetch methods failed, creating redirect page');
         const urlObj = new URL(targetUrl);
         html = `
           <!DOCTYPE html>
@@ -191,14 +191,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Educational Content - ${urlObj.hostname}</title>
+            <meta http-equiv="refresh" content="3;url=${targetUrl}">
             <style>
               body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
                 line-height: 1.6;
                 color: #333;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
+                margin: 0;
+                padding: 0;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
                 display: flex;
@@ -207,29 +207,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               .container {
                 background: white;
-                padding: 2rem;
-                border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                padding: 3rem;
+                border-radius: 15px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15);
                 text-align: center;
                 max-width: 500px;
+                margin: 20px;
               }
               .icon {
                 font-size: 4rem;
-                margin-bottom: 1rem;
+                margin-bottom: 1.5rem;
+                animation: pulse 2s infinite;
+              }
+              @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
               }
               h1 {
                 color: #2c3e50;
                 margin-bottom: 1rem;
+                font-size: 1.5rem;
               }
               .url {
                 color: #7f8c8d;
                 word-break: break-all;
                 background: #f8f9fa;
-                padding: 10px;
-                border-radius: 6px;
-                margin: 1rem 0;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 1.5rem 0;
                 font-family: monospace;
-                font-size: 0.9rem;
+                font-size: 0.85rem;
+                border-left: 4px solid #3498db;
+              }
+              .redirect-info {
+                color: #27ae60;
+                font-size: 1.1rem;
+                margin: 1.5rem 0;
+                font-weight: 500;
+              }
+              .countdown {
+                font-size: 2rem;
+                color: #e74c3c;
+                font-weight: bold;
+                margin: 1rem 0;
               }
               .actions {
                 margin-top: 2rem;
@@ -239,9 +260,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 padding: 12px 24px;
                 margin: 8px;
                 text-decoration: none;
-                border-radius: 6px;
+                border-radius: 8px;
                 font-weight: 500;
                 transition: all 0.3s ease;
+                cursor: pointer;
+                border: none;
+                font-size: 1rem;
               }
               .btn-primary {
                 background: #3498db;
@@ -250,57 +274,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
               .btn-primary:hover {
                 background: #2980b9;
                 transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
               }
-              .btn-secondary {
-                background: #95a5a6;
-                color: white;
+              .loading-bar {
+                width: 100%;
+                height: 4px;
+                background: #ecf0f1;
+                border-radius: 2px;
+                overflow: hidden;
+                margin: 20px 0;
               }
-              .btn-secondary:hover {
-                background: #7f8c8d;
-                transform: translateY(-2px);
+              .loading-progress {
+                height: 100%;
+                background: linear-gradient(90deg, #3498db, #2ecc71);
+                width: 0%;
+                animation: loading 3s linear forwards;
               }
-              .info {
-                margin-top: 1.5rem;
-                padding: 1rem;
-                background: #e8f4f8;
-                border-left: 4px solid #3498db;
-                border-radius: 4px;
-                text-align: left;
-                font-size: 0.9rem;
+              @keyframes loading {
+                from { width: 0%; }
+                to { width: 100%; }
               }
             </style>
           </head>
           <body>
             <div class="container">
               <div class="icon">📚</div>
-              <h1>Educational Content Access</h1>
-              <p>We're having trouble loading the educational content from this source.</p>
-              <div class="url">${targetUrl}</div>
-              <div class="info">
-                <strong>What happened?</strong><br>
-                The educational resource may have security restrictions or connectivity issues that prevent direct access through our learning portal.
+              <h1>Accessing Educational Content</h1>
+              <div class="redirect-info">Redirecting to study material...</div>
+              <div class="countdown" id="countdown">3</div>
+              <div class="loading-bar">
+                <div class="loading-progress"></div>
               </div>
+              <div class="url">${targetUrl}</div>
               <div class="actions">
-                <a href="${targetUrl}" target="_blank" class="btn btn-primary">
-                  📖 Open Original Source
+                <a href="${targetUrl}" class="btn btn-primary">
+                  📖 Access Now
                 </a>
-                <button onclick="window.parent.location.reload()" class="btn btn-secondary">
-                  🔄 Try Again
-                </button>
               </div>
             </div>
             <script>
-              // Attempt to redirect after a short delay if user doesn't interact
-              setTimeout(() => {
-                if (confirm('Would you like to open the original educational resource in a new tab?')) {
-                  window.open('${targetUrl}', '_blank');
+              let timeLeft = 3;
+              const countdownEl = document.getElementById('countdown');
+              
+              const timer = setInterval(() => {
+                timeLeft--;
+                countdownEl.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                  clearInterval(timer);
+                  countdownEl.textContent = 'Loading...';
+                  window.location.href = '${targetUrl}';
                 }
-              }, 3000);
+              }, 1000);
             </script>
           </body>
           </html>
         `;
-        fetchMethod = 'fallback';
+        fetchMethod = 'redirect';
       }
       
       // Process and enhance the HTML content

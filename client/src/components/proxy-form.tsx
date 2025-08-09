@@ -35,7 +35,7 @@ type ProxyFormData = z.infer<typeof proxyFormSchema>;
 export function ProxyForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [enableAboutBlank, setEnableAboutBlank] = useState(() => {
     const saved = localStorage.getItem("enableAboutBlank");
     return saved !== null ? saved !== "false" : true;
@@ -161,32 +161,45 @@ export function ProxyForm() {
               <div class="spinner"></div>
               <div>Loading educational content...</div>
             </div>
-            <iframe id="content" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation allow-downloads"></iframe>
+            <iframe id="content" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation allow-top-navigation-by-user-activation allow-modals allow-downloads" style="width: 100vw; height: 100vh; border: none; position: absolute; top: 0; left: 0; display: none;"></iframe>
             <script>
               const iframe = document.getElementById('content');
               const loading = document.getElementById('loading');
               let contentLoaded = false;
+              let loadingStartTime = Date.now();
 
-              // Function to show error and provide fallback
               function showError(message) {
                 loading.innerHTML = \`
-                  <div style="text-align: center; padding: 20px; font-family: Arial, sans-serif;">
-                    <h3 style="color: #dc3545; margin-bottom: 15px;">Content Loading Failed</h3>
-                    <p style="margin-bottom: 15px;">\${message}</p>
-                    <div>
-                      <a href="${variables.targetUrl}" target="_blank" style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 5px;">Open Original Site</a>
-                      <button onclick="location.reload()" style="display: inline-block; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; margin: 5px; cursor: pointer;">Retry</button>
+                  <div style="text-align: center; color: #dc3545; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">📚</div>
+                    <div style="font-size: 20px; margin-bottom: 15px; color: #2c3e50;">Educational Content Access</div>
+                    <div style="font-size: 16px; margin-bottom: 10px; color: #7f8c8d;">\${message}</div>
+                    <div style="margin: 20px 0;">
+                      <a href="${variables.targetUrl}" target="_blank" style="display: inline-block; padding: 12px 24px; background: #3498db; color: white; text-decoration: none; border-radius: 6px; font-size: 16px; margin: 5px;">📖 Open Original Source</a>
+                      <button onclick="window.location.reload()" style="display: inline-block; padding: 12px 24px; background: #95a5a6; color: white; border: none; border-radius: 6px; font-size: 16px; margin: 5px; cursor: pointer;">🔄 Try Again</button>
+                    </div>
+                    <div style="font-size: 14px; color: #95a5a6; margin-top: 15px;">
+                      Some educational resources may have security restrictions
                     </div>
                   </div>
                 \`;
               }
 
-              // Function to load content with multiple fallback strategies
+              function hideLoader() {
+                if (!contentLoaded) {
+                  contentLoaded = true;
+                  loading.style.opacity = '0';
+                  iframe.style.display = 'block';
+                  setTimeout(() => {
+                    loading.style.display = 'none';
+                  }, 500);
+                }
+              }
+
               async function loadContent() {
                 try {
-                  loading.innerHTML = '<div class="spinner"></div><div>Fetching educational content...</div>';
-                  
-                  // First attempt: Use our content proxy
+                  console.log('Fetching content for:', '${variables.targetUrl}');
+
                   const response = await fetch('/api/proxy/content', {
                     method: 'POST',
                     headers: {
@@ -198,67 +211,66 @@ export function ProxyForm() {
                   });
 
                   if (response.ok) {
-                    const html = await response.text();
-                    
-                    if (html && html.trim().length > 0) {
-                      // Successfully got content
-                      iframe.srcdoc = html;
-                      
-                      // Set up load handlers
-                      iframe.onload = () => {
-                        if (!contentLoaded) {
-                          contentLoaded = true;
-                          loading.style.display = 'none';
-                          iframe.style.display = 'block';
-                        }
-                      };
-                      
-                      iframe.onerror = () => {
-                        if (!contentLoaded) {
-                          showError('Content failed to load in iframe.');
-                        }
-                      };
-                      
-                      // Fallback timeout
-                      setTimeout(() => {
-                        if (!contentLoaded) {
-                          contentLoaded = true;
-                          loading.style.display = 'none';
-                          iframe.style.display = 'block';
-                        }
-                      }, 5000);
-                      
-                      return;
+                    const contentType = response.headers.get('content-type') || '';
+
+                    if (contentType.includes('text/html')) {
+                      const html = await response.text();
+
+                      if (html && html.trim().length > 100) {
+                        console.log('Content received, length:', html.length);
+
+                        // Use blob URL for better security and compatibility
+                        const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+                        const blobUrl = URL.createObjectURL(blob);
+
+                        iframe.src = blobUrl;
+
+                        iframe.onload = () => {
+                          console.log('Iframe loaded successfully');
+                          hideLoader();
+
+                          // Clean up blob URL after loading
+                          setTimeout(() => {
+                            URL.revokeObjectURL(blobUrl);
+                          }, 1000);
+                        };
+
+                        iframe.onerror = (e) => {
+                          console.error('Iframe load error:', e);
+                          showError('Content failed to display properly.');
+                        };
+
+                        // Fallback timeout - always show content after reasonable time
+                        setTimeout(() => {
+                          if (!contentLoaded) {
+                            console.log('Fallback timeout triggered');
+                            hideLoader();
+                          }
+                        }, 8000);
+
+                        return;
+                      }
                     }
                   }
-                  
-                  throw new Error('Content proxy returned empty or invalid response');
-                  
+
+                  throw new Error(\`HTTP \${response.status}: \${response.statusText}\`);
+
                 } catch (error) {
                   console.error('Content loading error:', error);
-                  
-                  // Fallback: Try direct iframe src (may work for some sites)
-                  try {
-                    loading.innerHTML = '<div class="spinner"></div><div>Trying direct access...</div>';
-                    iframe.src = '${variables.targetUrl}';
-                    
+
+                  // Try direct redirect as last resort
+                  setTimeout(() => {
+                    showError('Unable to load content through proxy. Redirecting to original source...');
                     setTimeout(() => {
-                      if (!contentLoaded) {
-                        contentLoaded = true;
-                        loading.style.display = 'none';
-                        iframe.style.display = 'block';
-                      }
+                      window.location.href = '${variables.targetUrl}';
                     }, 3000);
-                    
-                  } catch (directError) {
-                    showError('Unable to load content through any method.');
-                  }
+                  }, 2000);
                 }
               }
 
-              // Start loading content
+              // Start loading immediately
               loadContent();
-            </script>
+</script>
           </body>
           </html>
         `;
