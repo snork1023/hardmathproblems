@@ -33,10 +33,16 @@ const proxyFormSchema = z.object({
 type ProxyFormData = z.infer<typeof proxyFormSchema>;
 
 export function ProxyForm() {
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const [buttonColor, setButtonColor] = useState("bg-primary hover:bg-blue-700");
-  const [enableAboutBlank, setEnableAboutBlank] = useState(true);
   const { toast } = useToast();
+  const [buttonColor, setButtonColor] = useState("#2563eb");
+
+  // Initialize enableAboutBlank from localStorage immediately
+  const [enableAboutBlank, setEnableAboutBlank] = useState(() => {
+    const saved = localStorage.getItem("enableAboutBlank");
+    return saved !== null ? saved !== "false" : true;
+  });
+
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -44,12 +50,6 @@ export function ProxyForm() {
     const savedColor = localStorage.getItem("buttonColor");
     if (savedColor) {
       setButtonColor(savedColor);
-    }
-
-    // Load enableAboutBlank from localStorage
-    const savedEnableAboutBlank = localStorage.getItem("enableAboutBlank");
-    if (savedEnableAboutBlank !== null) {
-      setEnableAboutBlank(savedEnableAboutBlank !== "false");
     }
 
     // Listen for button color changes from settings
@@ -64,7 +64,7 @@ export function ProxyForm() {
 
     window.addEventListener('buttonColorChanged', handleColorChange as EventListener);
     window.addEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
-    
+
     return () => {
       window.removeEventListener('buttonColorChanged', handleColorChange as EventListener);
       window.removeEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
@@ -100,7 +100,7 @@ export function ProxyForm() {
     onSuccess: (response, variables) => {
       // Check if about:blank is enabled
       const enableAboutBlank = localStorage.getItem("enableAboutBlank") !== "false";
-      
+
       // Open the URL based on selected method and settings
       if (variables.openMethod === "about_blank" && enableAboutBlank) {
         // Open in about:blank and redirect to the target URL
@@ -142,7 +142,7 @@ export function ProxyForm() {
         <Link className="text-primary text-lg" />
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Khan Academy Textbook Links</h2>
       </div>
-      
+
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
@@ -166,7 +166,7 @@ export function ProxyForm() {
               <p className="text-red-500 text-sm mt-1">{form.formState.errors.targetUrl.message}</p>
             )}
           </div>
-          
+
           <div className="flex flex-col justify-end">
             <Button
               type="submit"
@@ -179,7 +179,7 @@ export function ProxyForm() {
             </Button>
           </div>
         </div>
-        
+
         {/* Advanced Options Toggle */}
         <div className="pt-4 border-t border-gray-100">
           <Button
@@ -196,7 +196,7 @@ export function ProxyForm() {
             )}
             <span>Advanced Options</span>
           </Button>
-          
+
           {showAdvancedOptions && (
             <div className="mt-4 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -223,7 +223,7 @@ export function ProxyForm() {
                   </Label>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="user-agent" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
