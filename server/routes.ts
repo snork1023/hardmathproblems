@@ -64,120 +64,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const body = proxyRequestBodySchema.parse(req.body);
       const { targetUrl, userAgent, maskIp } = body;
 
-      // Parse the target URL
+      console.log(`Proxying request to: ${targetUrl}`);
+
+      // Make a direct HTTP request instead of using proxy middleware
       const url = new URL(targetUrl);
       
-      // Prepare headers for IP masking
-      const headers: Record<string, string> = {};
+      // Prepare headers
+      const headers: Record<string, string> = {
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      };
+      
       if (userAgent) {
         headers['User-Agent'] = userAgent;
+      } else {
+        headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
       }
       
       if (maskIp) {
-        // Add headers to mask the real IP
         headers['X-Forwarded-For'] = '127.0.0.1';
         headers['X-Real-IP'] = '127.0.0.1';
-        headers['X-Remote-Addr'] = '127.0.0.1';
       }
-      
-      // Create proxy middleware
-      const proxy = createProxyMiddleware({
-        target: `${url.protocol}//${url.host}`,
-        changeOrigin: true,
-        followRedirects: body.followRedirects,
-        headers,
-        onProxyReq: (proxyReq, req, res) => {
-          // Log the outgoing request
-          console.log(`Proxying ${req.method} ${targetUrl}`);
-        },
-        onProxyRes: async (proxyRes, req, res) => {
-          const duration = Date.now() - startTime;
-          const responseSize = parseInt(proxyRes.headers['content-length'] || '0');
-          
-          // Log the proxy request
-          try {
-            await storage.createProxyRequest({
-              targetUrl,
-              method: req.method || 'GET',
-              statusCode: proxyRes.statusCode || 0,
-              duration,
-              responseSize,
-              userAgent: userAgent || req.get('User-Agent') || '',
-              errorMessage: null,
-            });
-          } catch (logError) {
-            console.error("Error logging proxy request:", logError);
-          }
-        },
-        onError: async (err, req, res) => {
-          const duration = Date.now() - startTime;
-          
-          // Log the error
-          try {
-            await storage.createProxyRequest({
-              targetUrl,
-              method: req.method || 'GET',
-              statusCode: 500,
-              duration,
-              responseSize: 0,
-              userAgent: userAgent || req.get('User-Agent') || '',
-              errorMessage: err.message,
-            });
-          } catch (logError) {
-            console.error("Error logging proxy error:", logError);
-          }
 
-          if (!res.headersSent) {
-            res.status(500).json({ 
-              message: "Proxy request failed", 
-              error: err.message,
-              targetUrl 
-            });
-          }
-        },
+      // Make the request
+      const response = await fetch(targetUrl, {
+        method: 'GET',
+        headers,
+        redirect: body.followRedirects ? 'follow' : 'manual',
       });
 
-      // Use the proxy middleware
-      proxy(req, res, () => {
-        // This callback is called if the proxy doesn't handle the request
-        if (!res.headersSent) {
-          res.status(404).json({ message: "Resource not found" });
+      const duration = Date.now() - startTime;
+      const responseText = await response.text();
+      const responseSize = Buffer.byteLength(responseText, 'utf8');
+
+      // Log the successful request
+      await storage.createProxyRequest({
+        targetUrl,
+        method: 'GET',
+        statusCode: response.status,
+        duration,
+        responseSize,
+        userAgent: userAgent || req.get('User-Agent') || null,
+        errorMessage: null,
+      });
+
+      // Return the response
+      res.status(response.status);
+      
+      // Copy response headers
+      response.headers.forEach((value, key) => {
+        if (!['content-encoding', 'transfer-encoding'].includes(key.toLowerCase())) {
+          res.setHeader(key, value);
         }
       });
+
+      res.send(responseText);
 
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      // Log validation errors
+      console.error("Proxy request error:", error);
+
       if (error instanceof z.ZodError) {
         res.status(400).json({ 
           message: "Invalid request", 
           errors: error.errors 
         });
       } else {
-        console.error("Proxy request error:", error);
+        // Log the failed request
+        try {
+          const targetUrl = req.body?.targetUrl || '';
+          if (targetUrl) {
+            await storage.createProxyRequest({
+              targetUrl,
+              method: 'GET',
+              statusCode: 500,
+              duration,
+              responseSize: 0,
+              userAgent: req.get('User-Agent') || null,
+              errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        } catch (logError) {
+          console.error("Error logging failed proxy request:", logError);
+        }
+
         res.status(500).json({ 
-          message: "Internal server error",
+          message: "Proxy request failed",
           error: error instanceof Error ? error.message : "Unknown error"
         });
-      }
-
-      // Still log the failed request
-      try {
-        const targetUrl = req.body?.targetUrl || '';
-        if (targetUrl) {
-          await storage.createProxyRequest({
-            targetUrl,
-            method: req.method || 'GET',
-            statusCode: 400,
-            duration,
-            responseSize: 0,
-            userAgent: req.get('User-Agent') || '',
-            errorMessage: error instanceof Error ? error.message : 'Unknown error',
-          });
-        }
-      } catch (logError) {
-        console.error("Error logging failed proxy request:", logError);
       }
     } finally {
       activeConnections--;

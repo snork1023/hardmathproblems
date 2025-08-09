@@ -45,6 +45,8 @@ export class MemStorage implements IStorage {
       ...insertRequest,
       id,
       timestamp: new Date(),
+      userAgent: insertRequest.userAgent || null,
+      errorMessage: insertRequest.errorMessage || null,
     };
     this.proxyRequests.set(id, request);
     await this.incrementTotalRequests();

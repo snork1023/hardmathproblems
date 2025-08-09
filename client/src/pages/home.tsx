@@ -23,9 +23,9 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen font-inter">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen font-inter">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
@@ -33,15 +33,15 @@ export default function Home() {
                 <Globe className="text-white text-sm" size={16} />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Nothing Suspicious At All Just Homework</h1>
-                <p className="text-xs text-gray-500">HTTP/HTTPS Proxy Server</p>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Nothing Suspicious At All Just Homework</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">HTTP/HTTPS Proxy Server</p>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-                <span className="text-sm text-gray-600" data-testid="text-server-status">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-gray-600 dark:text-gray-300" data-testid="text-server-status">
                   Server Running
                 </span>
               </div>
@@ -49,7 +49,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="p-2 text-gray-400 hover:text-gray-600"
+                className="p-2 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100"
                 onClick={() => setSettingsOpen(true)}
                 data-testid="button-settings"
               >
@@ -67,10 +67,10 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Status Card */}
           <StatusCard
-            serverPort={stats?.serverPort || 5000}
-            activeConnections={stats?.activeConnections || 0}
-            totalRequests={stats?.totalRequests || 0}
-            uptime={stats?.uptime ? formatUptime(stats.uptime) : "0m"}
+            serverPort={(stats as any)?.serverPort || 5000}
+            activeConnections={(stats as any)?.activeConnections || 0}
+            totalRequests={(stats as any)?.totalRequests || 0}
+            uptime={(stats as any)?.uptime ? formatUptime((stats as any).uptime) : "0m"}
           />
 
           {/* Quick Actions */}

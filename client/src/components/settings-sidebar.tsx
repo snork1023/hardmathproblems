@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { X, Moon, Sun, Shield, Globe, Eye, EyeOff } from "lucide-react";
+import { X, Moon, Sun, Shield, Globe, Eye, EyeOff, RefreshCw, Bell, FileText, Minimize2 } from "lucide-react";
 
 interface SettingsSidebarProps {
   isOpen: boolean;
@@ -18,24 +18,38 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
   const [ipMasking, setIpMasking] = useState(false);
   const [currentIp, setCurrentIp] = useState<string | null>(null);
   const [showIp, setShowIp] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [notifications, setNotifications] = useState(true);
+  const [enableLogging, setEnableLogging] = useState(true);
+  const [compactMode, setCompactMode] = useState(false);
   const { toast } = useToast();
 
-  // Load theme preference from localStorage
+  // Load theme preference from localStorage (default to light theme)
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
-    const isDark = savedTheme === "dark" || 
-      (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const isDark = savedTheme === "dark";
     
     setDarkMode(isDark);
     if (isDark) {
       document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
     }
   }, []);
 
-  // Load IP masking preference
+  // Load all preferences from localStorage
   useEffect(() => {
     const savedIpMasking = localStorage.getItem("ipMasking");
+    const savedAutoRefresh = localStorage.getItem("autoRefresh");
+    const savedNotifications = localStorage.getItem("notifications");
+    const savedEnableLogging = localStorage.getItem("enableLogging");
+    const savedCompactMode = localStorage.getItem("compactMode");
+    
     setIpMasking(savedIpMasking === "true");
+    setAutoRefresh(savedAutoRefresh !== "false"); // default true
+    setNotifications(savedNotifications !== "false"); // default true
+    setEnableLogging(savedEnableLogging !== "false"); // default true
+    setCompactMode(savedCompactMode === "true");
   }, []);
 
   // Fetch current IP address
@@ -83,6 +97,58 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
       description: newIpMasking 
         ? "Your IP address will be masked in proxy requests" 
         : "Your real IP address will be used",
+    });
+  };
+
+  const toggleAutoRefresh = () => {
+    const newAutoRefresh = !autoRefresh;
+    setAutoRefresh(newAutoRefresh);
+    localStorage.setItem("autoRefresh", newAutoRefresh.toString());
+
+    toast({
+      title: newAutoRefresh ? "Auto Refresh Enabled" : "Auto Refresh Disabled",
+      description: newAutoRefresh 
+        ? "Statistics will refresh automatically" 
+        : "Manual refresh required",
+    });
+  };
+
+  const toggleNotifications = () => {
+    const newNotifications = !notifications;
+    setNotifications(newNotifications);
+    localStorage.setItem("notifications", newNotifications.toString());
+
+    toast({
+      title: newNotifications ? "Notifications Enabled" : "Notifications Disabled",
+      description: newNotifications 
+        ? "You will receive status notifications" 
+        : "Notifications are turned off",
+    });
+  };
+
+  const toggleEnableLogging = () => {
+    const newEnableLogging = !enableLogging;
+    setEnableLogging(newEnableLogging);
+    localStorage.setItem("enableLogging", newEnableLogging.toString());
+
+    toast({
+      title: newEnableLogging ? "Logging Enabled" : "Logging Disabled",
+      description: newEnableLogging 
+        ? "All requests will be logged" 
+        : "Request logging is disabled",
+    });
+  };
+
+  const toggleCompactMode = () => {
+    const newCompactMode = !compactMode;
+    setCompactMode(newCompactMode);
+    localStorage.setItem("compactMode", newCompactMode.toString());
+
+    toast({
+      title: newCompactMode ? "Compact Mode Enabled" : "Compact Mode Disabled",
+      description: newCompactMode 
+        ? "Interface will use compact layout" 
+        : "Standard layout restored",
     });
   };
 
@@ -228,6 +294,102 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
                     </p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Auto Refresh */}
+            <Card className="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <RefreshCw className="text-blue-500" size={20} />
+                    <div>
+                      <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                        Auto Refresh
+                      </Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Automatically refresh statistics
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={autoRefresh}
+                    onCheckedChange={toggleAutoRefresh}
+                    data-testid="switch-auto-refresh"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Notifications */}
+            <Card className="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Bell className="text-orange-500" size={20} />
+                    <div>
+                      <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                        Notifications
+                      </Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Show status notifications
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notifications}
+                    onCheckedChange={toggleNotifications}
+                    data-testid="switch-notifications"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Request Logging */}
+            <Card className="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <FileText className="text-indigo-500" size={20} />
+                    <div>
+                      <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                        Request Logging
+                      </Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Log all proxy requests
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={enableLogging}
+                    onCheckedChange={toggleEnableLogging}
+                    data-testid="switch-logging"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Compact Mode */}
+            <Card className="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Minimize2 className="text-gray-500" size={20} />
+                    <div>
+                      <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                        Compact Mode
+                      </Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Use compact interface layout
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={compactMode}
+                    onCheckedChange={toggleCompactMode}
+                    data-testid="switch-compact-mode"
+                  />
+                </div>
               </CardContent>
             </Card>
 
