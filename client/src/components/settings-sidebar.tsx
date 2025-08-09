@@ -273,6 +273,9 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     setEnableAboutBlank(newEnableAboutBlank);
     localStorage.setItem("enableAboutBlank", newEnableAboutBlank.toString());
 
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent('aboutBlankChanged', { detail: newEnableAboutBlank }));
+
     toast({
       title: newEnableAboutBlank ? "About:Blank Enabled" : "About:Blank Disabled",
       description: newEnableAboutBlank 

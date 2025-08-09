@@ -35,6 +35,7 @@ type ProxyFormData = z.infer<typeof proxyFormSchema>;
 export function ProxyForm() {
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [buttonColor, setButtonColor] = useState("bg-primary hover:bg-blue-700");
+  const [enableAboutBlank, setEnableAboutBlank] = useState(true);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -76,8 +77,11 @@ export function ProxyForm() {
       return response;
     },
     onSuccess: (response, variables) => {
-      // Open the URL based on selected method
-      if (variables.openMethod === "about_blank") {
+      // Check if about:blank is enabled
+      const enableAboutBlank = localStorage.getItem("enableAboutBlank") !== "false";
+      
+      // Open the URL based on selected method and settings
+      if (variables.openMethod === "about_blank" && enableAboutBlank) {
         // Open in about:blank and redirect to the target URL
         const newWindow = window.open("about:blank");
         if (newWindow) {
@@ -227,7 +231,7 @@ export function ProxyForm() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="new_tab">New Tab (Masked)</SelectItem>
-                      {localStorage.getItem("enableAboutBlank") !== "false" && (
+                      {enableAboutBlank && (
                         <SelectItem value="about_blank">About:Blank</SelectItem>
                       )}
                     </SelectContent>
