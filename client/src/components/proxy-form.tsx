@@ -78,24 +78,11 @@ export function ProxyForm() {
     onSuccess: (response, variables) => {
       // Open the URL based on selected method
       if (variables.openMethod === "about_blank") {
-        // Open in about:blank with iframe to actual content
+        // Open in about:blank and redirect to the target URL
         const newWindow = window.open("about:blank");
         if (newWindow) {
-          newWindow.document.write(`
-            <html>
-              <head>
-                <title>Study Material</title>
-                <style>
-                  body { margin: 0; padding: 0; overflow: hidden; }
-                  iframe { width: 100%; height: 100vh; border: none; }
-                </style>
-              </head>
-              <body>
-                <iframe src="${variables.targetUrl}" allowfullscreen></iframe>
-              </body>
-            </html>
-          `);
-          newWindow.document.close();
+          // Simply redirect the about:blank window to the target URL
+          newWindow.location.href = variables.targetUrl;
         }
       } else {
         // Open in new tab with data URL to mask the URL
