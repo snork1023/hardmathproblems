@@ -47,7 +47,10 @@ export function ProxyForm() {
 
   const proxyMutation = useMutation({
     mutationFn: async (data: ProxyFormData) => {
-      const response = await apiRequest("POST", "/api/proxy/request", data);
+      // Check if IP masking is enabled in localStorage
+      const ipMasking = localStorage.getItem("ipMasking") === "true";
+      const requestData = { ...data, maskIp: ipMasking };
+      const response = await apiRequest("POST", "/api/proxy/request", requestData);
       return response;
     },
     onSuccess: () => {

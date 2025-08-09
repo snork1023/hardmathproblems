@@ -10,6 +10,7 @@ const proxyRequestBodySchema = z.object({
   followRedirects: z.boolean().optional().default(true),
   enableCaching: z.boolean().optional().default(false),
   userAgent: z.string().optional(),
+  maskIp: z.boolean().optional().default(false),
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -61,17 +62,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const body = proxyRequestBodySchema.parse(req.body);
-      const { targetUrl, userAgent } = body;
+      const { targetUrl, userAgent, maskIp } = body;
 
       // Parse the target URL
       const url = new URL(targetUrl);
+      
+      // Prepare headers for IP masking
+      const headers: Record<string, string> = {};
+      if (userAgent) {
+        headers['User-Agent'] = userAgent;
+      }
+      
+      if (maskIp) {
+        // Add headers to mask the real IP
+        headers['X-Forwarded-For'] = '127.0.0.1';
+        headers['X-Real-IP'] = '127.0.0.1';
+        headers['X-Remote-Addr'] = '127.0.0.1';
+      }
       
       // Create proxy middleware
       const proxy = createProxyMiddleware({
         target: `${url.protocol}//${url.host}`,
         changeOrigin: true,
         followRedirects: body.followRedirects,
-        headers: userAgent ? { 'User-Agent': userAgent } : {},
+        headers,
         onProxyReq: (proxyReq, req, res) => {
           // Log the outgoing request
           console.log(`Proxying ${req.method} ${targetUrl}`);

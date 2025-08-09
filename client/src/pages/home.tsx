@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ProxyForm } from "@/components/proxy-form";
 import { StatusCard } from "@/components/status-card";
 import { QuickActions } from "@/components/quick-actions";
 import { RequestLogs } from "@/components/request-logs";
+import { SettingsSidebar } from "@/components/settings-sidebar";
 import { Globe, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  
   const { data: stats } = useQuery({
     queryKey: ["/api/proxy/stats"],
     refetchInterval: 5000, // Refresh every 5 seconds
@@ -46,6 +50,7 @@ export default function Home() {
                 variant="ghost"
                 size="sm"
                 className="p-2 text-gray-400 hover:text-gray-600"
+                onClick={() => setSettingsOpen(true)}
                 data-testid="button-settings"
               >
                 <Settings size={16} />
@@ -75,6 +80,12 @@ export default function Home() {
         {/* Request Logs */}
         <RequestLogs />
       </main>
+
+      {/* Settings Sidebar */}
+      <SettingsSidebar
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 }
