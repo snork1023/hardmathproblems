@@ -46,16 +46,37 @@ export function ProxyForm() {
       setButtonColor(savedColor);
     }
 
+    // Load enableAboutBlank from localStorage
+    const savedEnableAboutBlank = localStorage.getItem("enableAboutBlank");
+    if (savedEnableAboutBlank !== null) {
+      setEnableAboutBlank(savedEnableAboutBlank !== "false");
+    }
+
     // Listen for button color changes from settings
     const handleColorChange = (event: CustomEvent) => {
       setButtonColor(event.detail);
     };
 
+    // Listen for about:blank setting changes
+    const handleAboutBlankChange = (event: CustomEvent) => {
+      setEnableAboutBlank(event.detail);
+    };
+
     window.addEventListener('buttonColorChanged', handleColorChange as EventListener);
+    window.addEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
+    
     return () => {
       window.removeEventListener('buttonColorChanged', handleColorChange as EventListener);
+      window.removeEventListener('aboutBlankChanged', handleAboutBlankChange as EventListener);
     };
   }, []);
+
+  // Update form default when enableAboutBlank changes
+  useEffect(() => {
+    if (!enableAboutBlank && form.watch("openMethod") === "about_blank") {
+      form.setValue("openMethod", "new_tab");
+    }
+  }, [enableAboutBlank, form]);
 
   const form = useForm<ProxyFormData>({
     resolver: zodResolver(proxyFormSchema),
@@ -64,7 +85,7 @@ export function ProxyForm() {
       followRedirects: true,
       enableCaching: false,
       userAgent: "",
-      openMethod: "new_tab" as const,
+      openMethod: enableAboutBlank ? "about_blank" : "new_tab",
     },
   });
 
