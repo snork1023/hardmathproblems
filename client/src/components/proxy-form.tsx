@@ -54,7 +54,7 @@ export function ProxyForm() {
       followRedirects: true,
       enableCaching: false,
       userAgent: "",
-      openMethod: enableAboutBlank ? "about_blank" : "new_tab",
+      openMethod: "new_tab",
     },
   });
 
@@ -92,9 +92,54 @@ export function ProxyForm() {
       const enableAboutBlank = localStorage.getItem("enableAboutBlank") !== "false";
 
       if (variables.openMethod === "about_blank" && enableAboutBlank) {
-        window.open(variables.targetUrl, '_blank');
+        // Create about:blank window and inject content
+        const newWindow = window.open("about:blank", "_blank");
+        if (newWindow) {
+          // Wait a moment for the window to load
+          setTimeout(() => {
+            newWindow.document.write(`
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Study Materials</title>
+                <style>
+                  body { margin: 0; padding: 0; overflow: hidden; }
+                  iframe { width: 100vw; height: 100vh; border: none; }
+                </style>
+              </head>
+              <body>
+                <iframe src="${variables.targetUrl}" frameborder="0"></iframe>
+              </body>
+              </html>
+            `);
+            newWindow.document.close();
+          }, 100);
+        }
       } else {
-        window.open(variables.targetUrl, '_blank');
+        // Open in new tab with masked URL using data URL
+        const maskedContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Study Materials - Khan Academy</title>
+            <style>
+              body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; }
+              iframe { width: 100vw; height: 100vh; border: none; }
+              .loading { 
+                position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                text-align: center; color: #666; 
+              }
+            </style>
+          </head>
+          <body>
+            <div class="loading">Loading study materials...</div>
+            <iframe src="${variables.targetUrl}" frameborder="0" onload="document.querySelector('.loading').style.display='none'"></iframe>
+          </body>
+          </html>
+        `;
+        
+        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(maskedContent);
+        window.open(dataUrl, '_blank');
       }
 
       toast({
