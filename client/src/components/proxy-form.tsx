@@ -78,18 +78,46 @@ export function ProxyForm() {
     onSuccess: (response, variables) => {
       // Open the URL based on selected method
       if (variables.openMethod === "about_blank") {
-        // Open in about:blank with masked URL
+        // Open in about:blank with actual website content
         const newWindow = window.open("about:blank");
         if (newWindow) {
-          newWindow.document.write(`
-            <html>
-              <head><title>Homework Helper</title></head>
-              <body style="margin:0; padding:0; background:#f5f5f5;">
-                <iframe src="${variables.targetUrl}" style="width:100%; height:100vh; border:none;"></iframe>
-              </body>
-            </html>
-          `);
-          newWindow.document.close();
+          // Fetch the content and display it
+          fetch(`/api/proxy/request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              targetUrl: variables.targetUrl,
+              followRedirects: variables.followRedirects,
+              enableCaching: variables.enableCaching,
+              userAgent: variables.userAgent || '',
+              maskIp: localStorage.getItem("ipMasking") === "true"
+            })
+          })
+          .then(response => response.text())
+          .then(htmlContent => {
+            newWindow.document.write(`
+              <html>
+                <head><title>Study Material</title></head>
+                <body style="margin:0; padding:0;">
+                  ${htmlContent}
+                </body>
+              </html>
+            `);
+            newWindow.document.close();
+          })
+          .catch(error => {
+            newWindow.document.write(`
+              <html>
+                <head><title>Error</title></head>
+                <body style="margin:20px; font-family: Arial;">
+                  <h3>Unable to load content</h3>
+                  <p>Error: ${error.message}</p>
+                  <p><a href="${variables.targetUrl}" target="_blank">Open original link</a></p>
+                </body>
+              </html>
+            `);
+            newWindow.document.close();
+          });
         }
       } else {
         // Open in new tab with data URL to mask the URL
@@ -234,7 +262,9 @@ export function ProxyForm() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="new_tab">New Tab (Masked)</SelectItem>
-                      <SelectItem value="about_blank">About:Blank</SelectItem>
+                      {localStorage.getItem("enableAboutBlank") !== "false" && (
+                        <SelectItem value="about_blank">About:Blank</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

@@ -81,7 +81,7 @@ export function QuickActions() {
 
   return (
     <Card className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2 mb-4">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2 mb-4">
         <Zap className="text-primary" size={20} />
         <span>Quick Actions</span>
       </h3>

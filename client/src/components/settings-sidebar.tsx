@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { X, Moon, Sun, Shield, Globe, Eye, EyeOff, RefreshCw, Bell, FileText, Minimize2, AlertTriangle, Keyboard, Palette, Settings, Save } from "lucide-react";
+import { X, Moon, Sun, Shield, Globe, Eye, EyeOff, RefreshCw, Bell, FileText, Minimize2, AlertTriangle, Keyboard, Palette, Settings, Save, ExternalLink } from "lucide-react";
 
 interface SettingsSidebarProps {
   isOpen: boolean;
@@ -29,6 +29,7 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
   const [buttonColor, setButtonColor] = useState("blue");
   const [hideScrollbars, setHideScrollbars] = useState(false);
   const [autoSaveSettings, setAutoSaveSettings] = useState(true);
+  const [enableAboutBlank, setEnableAboutBlank] = useState(true);
   const [enableShortcuts, setEnableShortcuts] = useState(true);
   const { toast } = useToast();
 
@@ -58,6 +59,7 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     const savedHideScrollbars = localStorage.getItem("hideScrollbars");
     const savedAutoSaveSettings = localStorage.getItem("autoSaveSettings");
     const savedEnableShortcuts = localStorage.getItem("enableShortcuts");
+    const savedEnableAboutBlank = localStorage.getItem("enableAboutBlank");
     
     setIpMasking(savedIpMasking === "true");
     setAutoRefresh(savedAutoRefresh !== "false"); // default true
@@ -70,6 +72,7 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     setHideScrollbars(savedHideScrollbars === "true");
     setAutoSaveSettings(savedAutoSaveSettings !== "false"); // default true
     setEnableShortcuts(savedEnableShortcuts !== "false"); // default true
+    setEnableAboutBlank(savedEnableAboutBlank !== "false"); // default true
   }, []);
 
   // Panic button handler
@@ -262,6 +265,19 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
       description: newEnableShortcuts 
         ? "Keyboard shortcuts are now active" 
         : "Keyboard shortcuts are disabled",
+    });
+  };
+
+  const toggleEnableAboutBlank = () => {
+    const newEnableAboutBlank = !enableAboutBlank;
+    setEnableAboutBlank(newEnableAboutBlank);
+    localStorage.setItem("enableAboutBlank", newEnableAboutBlank.toString());
+
+    toast({
+      title: newEnableAboutBlank ? "About:Blank Enabled" : "About:Blank Disabled",
+      description: newEnableAboutBlank 
+        ? "About:blank option is available" 
+        : "About:blank option is hidden",
     });
   };
 
@@ -700,6 +716,20 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
                       checked={autoSaveSettings}
                       onCheckedChange={toggleAutoSaveSettings}
                       data-testid="switch-auto-save"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <ExternalLink className="text-indigo-500" size={16} />
+                      <Label className="text-sm text-gray-700 dark:text-gray-300">
+                        Enable About:Blank
+                      </Label>
+                    </div>
+                    <Switch
+                      checked={enableAboutBlank}
+                      onCheckedChange={toggleEnableAboutBlank}
+                      data-testid="switch-about-blank"
                     />
                   </div>
                 </div>

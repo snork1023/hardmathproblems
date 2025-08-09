@@ -97,7 +97,7 @@ export function RequestLogs() {
   return (
     <Card className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mt-8">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
           <List className="text-primary" size={20} />
           <span>Recent Requests</span>
         </h3>
@@ -107,7 +107,7 @@ export function RequestLogs() {
             onClick={() => refetch()}
             size="sm"
             variant="ghost"
-            className="text-sm text-gray-500 hover:text-gray-700 flex items-center space-x-1"
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center space-x-1"
             data-testid="button-refresh-logs"
           >
             <RotateCcw size={12} />
@@ -119,7 +119,7 @@ export function RequestLogs() {
             disabled={clearLogsMutation.isPending}
             size="sm"
             variant="ghost"
-            className="text-sm text-gray-500 hover:text-gray-700 flex items-center space-x-1"
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center space-x-1"
             data-testid="button-clear-logs"
           >
             <X size={12} />
@@ -129,8 +129,8 @@ export function RequestLogs() {
       </div>
       
       {!data?.requests.length ? (
-        <div className="text-center py-8 text-gray-500">
-          <List size={48} className="mx-auto mb-4 text-gray-300" />
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <List size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
           <p>No proxy requests yet</p>
           <p className="text-sm">Requests will appear here after you access websites through the proxy</p>
         </div>
