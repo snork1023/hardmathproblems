@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { X, Moon, Sun, Shield, Globe, Eye, EyeOff, RefreshCw, Bell, FileText, Minimize2, AlertTriangle } from "lucide-react";
+import { X, Moon, Sun, Shield, Globe, Eye, EyeOff, RefreshCw, Bell, FileText, Minimize2, AlertTriangle, Keyboard, Palette, Settings, Save } from "lucide-react";
 
 interface SettingsSidebarProps {
   isOpen: boolean;
@@ -24,6 +25,11 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
   const [enableLogging, setEnableLogging] = useState(true);
   const [compactMode, setCompactMode] = useState(false);
   const [panicUrl, setPanicUrl] = useState("https://google.com");
+  const [panicKey, setPanicKey] = useState("F9");
+  const [buttonColor, setButtonColor] = useState("blue");
+  const [hideScrollbars, setHideScrollbars] = useState(false);
+  const [autoSaveSettings, setAutoSaveSettings] = useState(true);
+  const [enableShortcuts, setEnableShortcuts] = useState(true);
   const { toast } = useToast();
 
   // Load theme preference from localStorage (default to light theme)
@@ -47,6 +53,11 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     const savedEnableLogging = localStorage.getItem("enableLogging");
     const savedCompactMode = localStorage.getItem("compactMode");
     const savedPanicUrl = localStorage.getItem("panicUrl");
+    const savedPanicKey = localStorage.getItem("panicKey");
+    const savedButtonColor = localStorage.getItem("buttonColor");
+    const savedHideScrollbars = localStorage.getItem("hideScrollbars");
+    const savedAutoSaveSettings = localStorage.getItem("autoSaveSettings");
+    const savedEnableShortcuts = localStorage.getItem("enableShortcuts");
     
     setIpMasking(savedIpMasking === "true");
     setAutoRefresh(savedAutoRefresh !== "false"); // default true
@@ -54,7 +65,35 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     setEnableLogging(savedEnableLogging !== "false"); // default true
     setCompactMode(savedCompactMode === "true");
     setPanicUrl(savedPanicUrl || "https://google.com");
+    setPanicKey(savedPanicKey || "F9");
+    setButtonColor(savedButtonColor || "blue");
+    setHideScrollbars(savedHideScrollbars === "true");
+    setAutoSaveSettings(savedAutoSaveSettings !== "false"); // default true
+    setEnableShortcuts(savedEnableShortcuts !== "false"); // default true
   }, []);
+
+  // Panic button handler
+  const handlePanicButton = useCallback(() => {
+    window.location.href = panicUrl;
+  }, [panicUrl]);
+
+  // Keyboard event handler for panic button
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (!enableShortcuts) return;
+    
+    if (event.key === panicKey || event.code === panicKey) {
+      event.preventDefault();
+      handlePanicButton();
+    }
+  }, [panicKey, enableShortcuts, handlePanicButton]);
+
+  // Add keyboard event listener
+  useEffect(() => {
+    if (enableShortcuts) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [handleKeyDown, enableShortcuts]);
 
   // Fetch current IP address
   const fetchCurrentIp = async () => {
@@ -156,9 +195,7 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     });
   };
 
-  const handlePanicButton = () => {
-    window.location.href = panicUrl;
-  };
+
 
   const updatePanicUrl = (newUrl: string) => {
     setPanicUrl(newUrl);
@@ -166,6 +203,65 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     toast({
       title: "Panic URL Updated",
       description: `Will redirect to: ${newUrl}`,
+    });
+  };
+
+  const updatePanicKey = (newKey: string) => {
+    setPanicKey(newKey);
+    localStorage.setItem("panicKey", newKey);
+    toast({
+      title: "Panic Key Updated",
+      description: `Press ${newKey} to activate panic mode`,
+    });
+  };
+
+  const toggleHideScrollbars = () => {
+    const newHideScrollbars = !hideScrollbars;
+    setHideScrollbars(newHideScrollbars);
+    localStorage.setItem("hideScrollbars", newHideScrollbars.toString());
+    
+    // Apply scrollbar hiding to document
+    if (newHideScrollbars) {
+      document.documentElement.style.scrollbarWidth = 'none';
+      (document.documentElement.style as any).msOverflowStyle = 'none';
+      document.body.style.overflowY = 'scroll';
+    } else {
+      document.documentElement.style.scrollbarWidth = 'auto';
+      (document.documentElement.style as any).msOverflowStyle = 'auto';
+      document.body.style.overflowY = 'auto';
+    }
+
+    toast({
+      title: newHideScrollbars ? "Scrollbars Hidden" : "Scrollbars Visible",
+      description: newHideScrollbars 
+        ? "Scrollbars are now hidden for cleaner appearance" 
+        : "Scrollbars are now visible",
+    });
+  };
+
+  const toggleAutoSaveSettings = () => {
+    const newAutoSaveSettings = !autoSaveSettings;
+    setAutoSaveSettings(newAutoSaveSettings);
+    localStorage.setItem("autoSaveSettings", newAutoSaveSettings.toString());
+
+    toast({
+      title: newAutoSaveSettings ? "Auto Save Enabled" : "Auto Save Disabled",
+      description: newAutoSaveSettings 
+        ? "Settings will save automatically" 
+        : "Manual save required",
+    });
+  };
+
+  const toggleEnableShortcuts = () => {
+    const newEnableShortcuts = !enableShortcuts;
+    setEnableShortcuts(newEnableShortcuts);
+    localStorage.setItem("enableShortcuts", newEnableShortcuts.toString());
+
+    toast({
+      title: newEnableShortcuts ? "Shortcuts Enabled" : "Shortcuts Disabled",
+      description: newEnableShortcuts 
+        ? "Keyboard shortcuts are now active" 
+        : "Keyboard shortcuts are disabled",
     });
   };
 
@@ -184,6 +280,39 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     }
     return ip;
   };
+
+  const updateButtonColor = (newColor: string) => {
+    setButtonColor(newColor);
+    localStorage.setItem("buttonColor", newColor);
+    toast({
+      title: "Button Color Updated", 
+      description: `Changed to ${newColor} theme`,
+    });
+  };
+
+  // Color options for button customization
+  const colorOptions = [
+    { name: "Blue", value: "blue", bg: "bg-blue-500", hover: "hover:bg-blue-600" },
+    { name: "Green", value: "green", bg: "bg-green-500", hover: "hover:bg-green-600" },
+    { name: "Purple", value: "purple", bg: "bg-purple-500", hover: "hover:bg-purple-600" },
+    { name: "Red", value: "red", bg: "bg-red-500", hover: "hover:bg-red-600" },
+    { name: "Orange", value: "orange", bg: "bg-orange-500", hover: "hover:bg-orange-600" },
+    { name: "Pink", value: "pink", bg: "bg-pink-500", hover: "hover:bg-pink-600" },
+    { name: "Indigo", value: "indigo", bg: "bg-indigo-500", hover: "hover:bg-indigo-600" },
+    { name: "Teal", value: "teal", bg: "bg-teal-500", hover: "hover:bg-teal-600" },
+    { name: "Cyan", value: "cyan", bg: "bg-cyan-500", hover: "hover:bg-cyan-600" },
+    { name: "Emerald", value: "emerald", bg: "bg-emerald-500", hover: "hover:bg-emerald-600" },
+    { name: "Lime", value: "lime", bg: "bg-lime-500", hover: "hover:bg-lime-600" },
+    { name: "Yellow", value: "yellow", bg: "bg-yellow-500", hover: "hover:bg-yellow-600" },
+    { name: "Amber", value: "amber", bg: "bg-amber-500", hover: "hover:bg-amber-600" },
+    { name: "Rose", value: "rose", bg: "bg-rose-500", hover: "hover:bg-rose-600" },
+    { name: "Violet", value: "violet", bg: "bg-violet-500", hover: "hover:bg-violet-600" },
+    { name: "Fuchsia", value: "fuchsia", bg: "bg-fuchsia-500", hover: "hover:bg-fuchsia-600" },
+    { name: "Sky", value: "sky", bg: "bg-sky-500", hover: "hover:bg-sky-600" },
+    { name: "Stone", value: "stone", bg: "bg-stone-500", hover: "hover:bg-stone-600" },
+    { name: "Slate", value: "slate", bg: "bg-slate-500", hover: "hover:bg-slate-600" },
+    { name: "Gray", value: "gray", bg: "bg-gray-500", hover: "hover:bg-gray-600" },
+  ];
 
   if (!isOpen) return null;
 
@@ -412,40 +541,165 @@ export function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
 
             {/* Panic Button */}
             <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
                     <AlertTriangle className="text-red-500" size={20} />
                     <div>
-                      <Label className="text-sm font-medium text-gray-900 dark:text-white">
-                        Panic Button
+                      <Label className="text-sm font-medium text-red-800 dark:text-red-300">
+                        Emergency Redirect
                       </Label>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Quick redirect for emergencies
+                      <p className="text-xs text-red-600 dark:text-red-400">
+                        Press {panicKey} or click button for quick escape
                       </p>
                     </div>
                   </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handlePanicButton}
-                    data-testid="button-panic"
-                    className="text-xs px-3 py-1"
-                  >
-                    PANIC
-                  </Button>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label className="text-xs text-gray-700 dark:text-gray-300">Redirect URL:</Label>
-                  <Input
-                    type="url"
-                    value={panicUrl}
-                    onChange={(e) => updatePanicUrl(e.target.value)}
-                    placeholder="https://google.com"
-                    className="text-xs h-8"
-                    data-testid="input-panic-url"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs text-red-600 dark:text-red-400 mb-1">
+                      Redirect URL
+                    </Label>
+                    <Input
+                      type="text"
+                      value={panicUrl}
+                      onChange={(e) => updatePanicUrl(e.target.value)}
+                      placeholder="https://google.com"
+                      className="text-xs h-8 border-red-200 dark:border-red-700 focus:ring-red-500"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-red-600 dark:text-red-400 mb-1">
+                      Panic Key
+                    </Label>
+                    <Select value={panicKey} onValueChange={updatePanicKey}>
+                      <SelectTrigger className="text-xs h-8 border-red-200 dark:border-red-700">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="F9">F9</SelectItem>
+                        <SelectItem value="F10">F10</SelectItem>
+                        <SelectItem value="F11">F11</SelectItem>
+                        <SelectItem value="F12">F12</SelectItem>
+                        <SelectItem value="Escape">Escape</SelectItem>
+                        <SelectItem value="Delete">Delete</SelectItem>
+                        <SelectItem value="Insert">Insert</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Button
+                    onClick={handlePanicButton}
+                    className="w-full bg-red-500 hover:bg-red-600 text-white text-xs h-8 font-medium"
+                    data-testid="button-panic"
+                  >
+                    <AlertTriangle size={12} className="mr-2" />
+                    Emergency Redirect
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Button Color Customization */}
+            <Card className="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Palette className="text-purple-500" size={20} />
+                    <div>
+                      <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                        Button Colors
+                      </Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Choose from 20 color options
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-4 gap-2">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color.value}
+                      onClick={() => updateButtonColor(color.value)}
+                      className={`w-8 h-8 rounded-lg ${color.bg} ${color.hover} transition-all duration-200 ${
+                        buttonColor === color.value 
+                          ? 'ring-2 ring-gray-400 dark:ring-gray-300 scale-110' 
+                          : 'hover:scale-105'
+                      }`}
+                      title={color.name}
+                      data-testid={`color-${color.value}`}
+                    />
+                  ))}
+                </div>
+                
+                <div className="mt-3 text-xs text-gray-600 dark:text-gray-400 text-center">
+                  Current: {colorOptions.find(c => c.value === buttonColor)?.name || 'Blue'}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Advanced Options */}
+            <Card className="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Settings className="text-indigo-500" size={20} />
+                    <div>
+                      <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                        Advanced Options
+                      </Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Additional customization settings
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Keyboard className="text-indigo-500" size={16} />
+                      <Label className="text-sm text-gray-700 dark:text-gray-300">
+                        Keyboard Shortcuts
+                      </Label>
+                    </div>
+                    <Switch
+                      checked={enableShortcuts}
+                      onCheckedChange={toggleEnableShortcuts}
+                      data-testid="switch-enable-shortcuts"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Eye className="text-indigo-500" size={16} />
+                      <Label className="text-sm text-gray-700 dark:text-gray-300">
+                        Hide Scrollbars
+                      </Label>
+                    </div>
+                    <Switch
+                      checked={hideScrollbars}
+                      onCheckedChange={toggleHideScrollbars}
+                      data-testid="switch-hide-scrollbars"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Save className="text-indigo-500" size={16} />
+                      <Label className="text-sm text-gray-700 dark:text-gray-300">
+                        Auto Save Settings
+                      </Label>
+                    </div>
+                    <Switch
+                      checked={autoSaveSettings}
+                      onCheckedChange={toggleAutoSaveSettings}
+                      data-testid="switch-auto-save"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>

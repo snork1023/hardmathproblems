@@ -76,17 +76,17 @@ export function ProxyForm() {
   };
 
   return (
-    <Card className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <Card className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
       <div className="flex items-center space-x-3 mb-6">
         <Link className="text-primary text-lg" />
-        <h2 className="text-lg font-semibold text-gray-900">Access Website Through Proxy</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Khan Academy Textbook Links</h2>
       </div>
       
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
-            <Label htmlFor="target-url" className="block text-sm font-medium text-gray-700 mb-2">
-              Target URL
+            <Label htmlFor="target-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Textbook Chapter URL
             </Label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -95,7 +95,7 @@ export function ProxyForm() {
               <Input
                 id="target-url"
                 type="text"
-                placeholder="google.com or https://example.com"
+                placeholder="khanacademy.org/math/calculus-1 or physics chapter link"
                 className="pl-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                 data-testid="input-target-url"
                 {...form.register("targetUrl")}
@@ -114,7 +114,7 @@ export function ProxyForm() {
               data-testid="button-access-site"
             >
               <ArrowRight size={16} />
-              <span>{proxyMutation.isPending ? "Accessing..." : "Access Site"}</span>
+              <span>{proxyMutation.isPending ? "Loading..." : "Open Chapter"}</span>
             </Button>
           </div>
         </div>
