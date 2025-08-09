@@ -29,6 +29,12 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: "0.0.0.0",
+    port: 5173,
+    hmr: {
+      port: 443,
+      clientPort: 443
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],
